@@ -8,15 +8,29 @@ start:
     call print_string
 
     ; --- 1. Load Kernel ---
-    mov bx, 0x10000
-    mov dh, 32
+    ; Set up a safe temporary load address at 0x20000 (128KB)
+    ; es:bx = 0x2000:0x0000 -> physical address 0x20000
+    mov ax, 0x2000
+    mov es, ax
+    mov bx, 0x0000
+
+    mov dh, 32  ; Load 32 sectors (16KB)
     call load_disk
-    mov al, '1' ; Print '1' after successful disk load
+
+    ; Now that it's loaded, copy it from the temporary location (0x20000)
+    ; to its final high-memory location (0x100000).
+    mov si, 0x20000
+    mov edi, 0x100000
+    mov cx, 32 * 512 / 2 ; Word count to copy
+    cld
+    rep movsw
+
+    mov al, '1' ; Should now print successfully
     call print_char
 
     ; --- 2. Set Up Paging ---
     call setup_paging
-    mov al, '2' ; Print '2' after paging setup
+    mov al, '2'
     call print_char
 
     ; --- 3. Enter Long Mode ---
@@ -27,17 +41,14 @@ start:
     rdmsr
     or eax, 1 << 8
     wrmsr
-    mov al, '3' ; Print '3' after enabling long mode
+    mov al, '3'
     call print_char
 
-    ; --- 4. Enable Paging ---
+    ; --- 4. Enable Paging & Jump to 64-bit ---
     mov eax, cr0
     or eax, 1 << 31 | 1 << 0
     mov cr0, eax
     lgdt [gdt64_ptr]
-    mov al, '4' ; Print '4' right before the big jump
-    call print_char
-
     jmp gdt64_code:long_mode_start
 
 print_char:
@@ -64,11 +75,6 @@ load_disk:
     mov dh, 0
     int 0x13
     jc disk_error
-    mov si, 0x10000
-    mov edi, 0x100000
-    mov cx, 32 * 512 / 2
-    cld
-    rep movsw
     ret
 
 disk_error:
@@ -93,26 +99,26 @@ setup_paging:
 
 [BITS 64]
 long_mode_start:
-    mov ax, 0
+    mov ax, 0x10 ; Selector for our data segment
     mov ss, ax
     mov ds, ax
     mov es, ax
     mov fs, ax
     mov gs, ax
     mov rsp, 0x90000
-    jmp 0x100000
+    jmp 0x100000 ; Jump to the pure binary code
 
 [BITS 16]
 loading_msg db 'Loading AronaOS 64-bit... ', 0
 err_msg db 'Disk read error!', 0
 gdt64:
-    dq 0
+    dq 0 ; Null
 gdt64_code:
-    dw 0, 0
-    db 0
-    db 0b10011010
-    db 0b00100000
-    db 0
+    dw 0xFFFF, 0
+    db 0, 0b10011010, 0b10101111, 0 ; 64-bit Code
+gdt64_data:
+    dw 0xFFFF, 0
+    db 0, 0b10010010, 0b11001111, 0 ; 64-bit Data
 gdt64_ptr:
     dw $ - gdt64 - 1
     dq gdt64

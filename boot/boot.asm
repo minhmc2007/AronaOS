@@ -2,138 +2,128 @@
 [BITS 16]
 
 start:
-    ; --- Basic Setup ---
-    mov bp, 0x9000
-    mov sp, bp
+    ; --- Interrupt-Safe Stack Setup ---
+    cli
+    mov ax, 0x8000
+    mov ss, ax
+    mov sp, 0xFFFF
+    sti
+
+    mov [boot_drive], dl
+
     mov si, loading_msg
     call print_string
 
-    ; --- 1. Load Kernel to a safe temporary address ---
-    mov ax, 0x2000  ; Segment for 0x20000
-    mov es, ax
-    mov bx, 0x0000  ; Offset
-    mov dh, 32      ; Load 32 sectors (16KB)
+    ; --- 1. Load Kernel ---
+    mov ax, 0x2000, es, ax
+    mov bx, 0
     call load_disk
+    mov si, success_msg
+    call print_string
 
-    ; --- Copy Kernel from temp 0x20000 to final 0x100000 ---
+    ; --- Copy Kernel to its final location ---
     mov esi, 0x20000
     mov edi, 0x100000
-    mov ecx, 32 * 512 / 4 ; 16KB in dwords
+    mov ecx, 32 * 512 / 2
     cld
-    rep movsd
+    rep movsw
 
     ; --- 2. Set Up Paging ---
     call setup_paging
 
-    ; --- 3. Enable Long Mode bits ---
+    ; --- 3. Enable PAE and LME ---
     mov eax, cr4
-    or eax, 1 << 5      ; Enable PAE
+    or eax, 1 << 5
     mov cr4, eax
-
-    mov ecx, 0xC0000080 ; EFER MSR
+    mov ecx, 0xC0000080
     rdmsr
-    or eax, 1 << 8      ; Enable LME (Long Mode Enable)
+    or eax, 1 << 8
     wrmsr
 
-    ; --- 4. Load GDT and Enable Paging ---
+    ; --- 4. Maximum Compatibility Transition to Long Mode ---
+    ; Step A: Load the GDT for the upcoming mode switches
     lgdt [gdt64_ptr]
+
+    ; Step B: Enter 32-bit Protected Mode FIRST.
     mov eax, cr0
-    or eax, 1 << 31 | 1 ; Enable Paging (PG) and Protection (PE)
+    or eax, 1 << 0 ; Set PE bit
     mov cr0, eax
 
-    ; --- 5. Far Jump to 64-bit kernel entry (at 0x100000) ---
-    jmp 0x08:long_mode_start
+    ; Step C: Far jump to flush the pipeline and load CS with a 32-bit selector.
+    ; We are now in 32-bit mode.
+    jmp gdt32_code:protected_mode_stub
 
-; --- Helper routines ---
+[BITS 32]
+protected_mode_stub:
+    ; Step D: Now that we are in stable 32-bit protected mode,
+    ; enable paging. This will atomically activate 64-bit Long Mode
+    ; because the LME bit in EFER is already set.
+    mov eax, cr0
+    or eax, 1 << 31 ; Set PG bit
+    mov cr0, eax
 
+    ; Step E: The final far jump into our 64-bit code segment.
+    jmp gdt64_code:long_mode_start
+
+[BITS 16] ; Back to 16-bit for data/utility functions
 print_string:
     mov ah, 0x0e
-.print_str_loop:
+.loop:
     lodsb
     cmp al, 0
     je .done
     int 0x10
-    jmp .print_str_loop
+    jmp .loop
 .done:
     ret
 
 load_disk:
-    mov ah, 0x02
-    mov al, dh
-    mov ch, 0
-    mov cl, 2
-    mov dh, 0
+    mov ah, 0x02, al, 32
+    mov ch, 0, cl, 2
+    mov dh, 0, dl, [boot_drive]
     int 0x13
     jc disk_error
     ret
 
 disk_error:
-    mov si, err_msg
+    mov si, error_msg
     call print_string
     cli
     hlt
 
 setup_paging:
-    ; Zero out 3 pages of memory for page tables (PML4, PDPT, PD)
-    mov edi, 0x1000
-    mov ecx, (4096 * 3) / 4
-    xor eax, eax
-    rep stosd
-
-    ; Point CR3 to the PML4 table at 0x1000
-    mov edi, 0x1000
-    mov cr3, edi
-
-    ; PML4[0] -> PDPT at 0x2000
+    mov edi, 0x1000, ecx, 4096*3, xor eax, eax, rep stosd
+    mov edi, 0x1000, cr3, edi
     mov dword [edi], 0x2003
-
-    ; PDPT[0] -> PD at 0x3000
-    mov edi, 0x2000
-    mov dword [edi], 0x3003
-
-    ; PD[0] -> 2MB page starting at address 0
-    mov edi, 0x3000
-    mov dword [edi], 0x00083 ; Present, R/W, 2MB Page Size
+    mov edi, 0x2000, dword [edi], 0x3003
+    mov edi, 0x3000, dword [edi], 0x00083
     ret
 
-; --- Minimal 64-bit GDT ---
+; --- GDT with both 32-bit and 64-bit descriptors ---
 gdt64:
-    dq 0 ; Null Descriptor
-gdt64_code: equ $ - gdt64 ; Offset 0x08
-    dw 0       ; limit 15:0
-    dw 0       ; base 15:0
-    db 0       ; base 23:16
-    db 0x9A    ; access byte (Present, Ring 0, Code, Exec/Read)
-    db 0x20    ; flags (L-bit for 64-bit code)
-    db 0       ; base 31:24
-gdt64_data: equ $ - gdt64 ; Offset 0x10
-    dw 0       ; limit 15:0
-    dw 0       ; base 15:0
-    db 0       ; base 23:16
-    db 0x92    ; access byte (Present, Ring 0, Data, Read/Write)
-    db 0x00    ; flags
-    db 0       ; base 31:24
+    dq 0 ; Null
+gdt32_code: equ $ - gdt64 ; 32-bit code selector for the stub
+    dw 0xFFFF, 0, 0, 0x9A, 0xCF, 0
+gdt64_code: equ $ - gdt64 ; 64-bit code selector
+    dw 0, 0, 0, 0x9A, 0x20, 0
+gdt64_data: equ $ - gdt64 ; 64-bit data selector
+    dw 0, 0, 0, 0x92, 0x00, 0
 gdt64_ptr:
-    dw $ - gdt64 - 1 ; GDT size
-    dq gdt64         ; GDT base address
+    dw $ - gdt64 - 1
+    dq gdt64
 
 [BITS 64]
 long_mode_start:
-    ; Set up data segments
     mov ax, gdt64_data
-    mov ss, ax
-    mov ds, ax
-    mov es, ax
-    mov fs, ax
-    mov gs, ax
-
-    mov rsp, 0x90000 ; Set up stack pointer
-    ; Far jump to kernel
+    mov ss, ax, ds, ax, es, ax, fs, ax, gs, ax
+    mov rsp, 0x90000
     jmp 0x100000
 
 [BITS 16]
-loading_msg db 'Loading AronaOS 64-bit...', 13, 10, 0
-err_msg db 'Disk read error!', 0
+boot_drive  db 0
+loading_msg db 'AronaOS Bootloader (Max-Compat)...', 13, 10, 0
+success_msg db 'Kernel loaded. Switching to Long Mode...', 13, 10, 0
+error_msg   db 'FATAL: Disk Read Error!', 13, 10, 0
 
 times 510 - ($ - $$) db 0
 dw 0xAA55

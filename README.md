@@ -1,0 +1,2 @@
+# AronaOS
+OS from scratch

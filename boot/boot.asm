@@ -132,7 +132,7 @@ gdt64_data: equ $ - gdt64
 gdt64_ptr:
     ; CORRECTED SYNTAX: Each definition on its own line
     dw $ - gdt64 - 1 ; GDT size
-    dq gdt64         ; GDT base address
+    dd gdt64         ; GDT base address
 
 [BITS 64]
 long_mode_start:

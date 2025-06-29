@@ -14,6 +14,11 @@ start:
     mov si, loading_msg
     call print_string
 
+    ; --- Enable A20 Gate (Fast Method) ---
+    in al, 0x92
+    or al, 2
+    out 0x92, al
+
     ; --- 1. Load Kernel ---
     mov ax, 0x2000
     mov es, ax
@@ -23,8 +28,10 @@ start:
     call print_string
 
     ; --- Copy Kernel to its final location ---
+    mov ax, 0x10000
+    mov es, ax
+    mov edi, 0
     mov esi, 0x20000
-    mov edi, 0x100000
     mov ecx, 32 * 512 / 2
     cld
     rep movsw

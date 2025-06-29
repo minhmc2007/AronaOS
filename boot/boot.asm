@@ -16,12 +16,11 @@ start:
     call load_disk
 
     ; --- Copy Kernel from temp 0x20000 to final 0x100000 ---
-    ; Use 32-bit registers explicitly to be unambiguous
     mov esi, 0x20000
     mov edi, 0x100000
-    mov ecx, 32 * 512 / 2 ; 16KB in words
+    mov ecx, 32 * 512 / 4 ; 16KB in dwords
     cld
-    rep movsw
+    rep movsd
 
     ; --- 2. Set Up Paging ---
     call setup_paging
@@ -30,6 +29,7 @@ start:
     mov eax, cr4
     or eax, 1 << 5      ; Enable PAE
     mov cr4, eax
+
     mov ecx, 0xC0000080 ; EFER MSR
     rdmsr
     or eax, 1 << 8      ; Enable LME (Long Mode Enable)
@@ -38,20 +38,22 @@ start:
     ; --- 4. Load GDT and Enable Paging ---
     lgdt [gdt64_ptr]
     mov eax, cr0
-    or eax, 1 << 31 | 1 << 0 ; Enable Paging (PG) and Protection (PE)
+    or eax, 1 << 31 | 1 ; Enable Paging (PG) and Protection (PE)
     mov cr0, eax
 
-    ; --- 5. The Final Jump ---
-    jmp gdt64_code:long_mode_start
+    ; --- 5. Far Jump to 64-bit kernel entry (at 0x100000) ---
+    jmp 0x08:long_mode_start
+
+; --- Helper routines ---
 
 print_string:
     mov ah, 0x0e
-.loop:
+.print_str_loop:
     lodsb
     cmp al, 0
     je .done
     int 0x10
-    jmp .loop
+    jmp .print_str_loop
 .done:
     ret
 
@@ -74,7 +76,7 @@ disk_error:
 setup_paging:
     ; Zero out 3 pages of memory for page tables (PML4, PDPT, PD)
     mov edi, 0x1000
-    mov ecx, 4096 * 3
+    mov ecx, (4096 * 3) / 4
     xor eax, eax
     rep stosd
 
@@ -84,17 +86,17 @@ setup_paging:
 
     ; PML4[0] -> PDPT at 0x2000
     mov dword [edi], 0x2003
-    
+
     ; PDPT[0] -> PD at 0x3000
     mov edi, 0x2000
     mov dword [edi], 0x3003
-    
+
     ; PD[0] -> 2MB page starting at address 0
     mov edi, 0x3000
     mov dword [edi], 0x00083 ; Present, R/W, 2MB Page Size
     ret
 
-; --- A simplified, robust GDT for 64-bit mode ---
+; --- Minimal 64-bit GDT ---
 gdt64:
     dq 0 ; Null Descriptor
 gdt64_code: equ $ - gdt64 ; Offset 0x08
@@ -117,8 +119,8 @@ gdt64_ptr:
 
 [BITS 64]
 long_mode_start:
-    ; We are now in 64-bit mode. Selectors are offsets from GDT base.
-    mov ax, gdt64_data ; Selector for our data segment (0x10)
+    ; Set up data segments
+    mov ax, gdt64_data
     mov ss, ax
     mov ds, ax
     mov es, ax
@@ -126,7 +128,8 @@ long_mode_start:
     mov gs, ax
 
     mov rsp, 0x90000 ; Set up stack pointer
-    jmp 0x100000     ; Jump to kernel
+    ; Far jump to kernel
+    jmp 0x100000
 
 [BITS 16]
 loading_msg db 'Loading AronaOS 64-bit...', 13, 10, 0

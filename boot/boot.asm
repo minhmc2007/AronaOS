@@ -14,7 +14,7 @@ start:
     mov si, loading_msg
     call print_string
 
-    ; --- Enable A20 Gate (Fast Method) ---
+    ; --- Enable A20 Gate (Important for accessing memory > 1MB) ---
     in al, 0x92
     or al, 2
     out 0x92, al
@@ -27,12 +27,11 @@ start:
     mov si, success_msg
     call print_string
 
-    ; --- Copy Kernel to its final location ---
-    mov ax, 0x10000
-    mov es, ax
-    mov edi, 0
-    mov esi, 0x20000
-    mov ecx, 32 * 512 / 2
+    ; --- CORRECTED: Copy Kernel to its final location ---
+    ; Use 32-bit registers to handle addresses > 64K
+    mov esi, 0x20000   ; Source: Temporary buffer
+    mov edi, 0x100000  ; Destination: Final kernel address
+    mov ecx, 32 * 512 / 2 ; Word count
     cld
     rep movsw
 
@@ -107,48 +106,29 @@ setup_paging:
 
 ; --- GDT with both 32-bit and 64-bit descriptors ---
 gdt64:
-    dq 0 ; Null Descriptor
+    dq 0
 gdt32_code: equ $ - gdt64
-    dw 0xFFFF  ; Limit
-    dw 0       ; Base
-    db 0       ; Base
-    db 0x9A    ; Access
-    db 0xCF    ; Granularity
-    db 0       ; Base
+    dw 0xFFFF, 0, 0, 0x9A, 0xCF, 0
 gdt64_code: equ $ - gdt64
-    dw 0       ; Limit (ignored)
-    dw 0       ; Base (ignored)
-    db 0       ; Base (ignored)
-    db 0x9A    ; Access
-    db 0x20    ; Granularity (L-bit for 64-bit)
-    db 0       ; Base (ignored)
+    dw 0, 0, 0, 0x9A, 0x20, 0
 gdt64_data: equ $ - gdt64
-    dw 0       ; Limit (ignored)
-    dw 0       ; Base (ignored)
-    db 0       ; Base (ignored)
-    db 0x92    ; Access
-    db 0x00    ; Granularity
-    db 0       ; Base (ignored)
+    dw 0, 0, 0, 0x92, 0x00, 0
 gdt64_ptr:
-    ; CORRECTED SYNTAX: Each definition on its own line
-    dw $ - gdt64 - 1 ; GDT size
-    dd gdt64         ; GDT base address
+    ; CORRECTED: GDT pointer uses a 64-bit base address (dq)
+    dw $ - gdt64 - 1
+    dq gdt64
 
 [BITS 64]
 long_mode_start:
     mov ax, gdt64_data
-    mov ss, ax
-    mov ds, ax
-    mov es, ax
-    mov fs, ax
-    mov gs, ax
+    mov ss, ax, ds, ax, es, ax, fs, ax, gs, ax
     mov rsp, 0x90000
     jmp 0x100000
 
 [BITS 16]
 boot_drive  db 0
-loading_msg db 'AronaOS Bootloader (Max-Compat)...', 13, 10, 0
-success_msg db 'Kernel loaded. Switching to Long Mode...', 13, 10, 0
+loading_msg db 'AronaOS Bootloader (v1.0 Final)...', 13, 10, 0
+success_msg db 'Kernel loaded. Executing...', 13, 10, 0
 error_msg   db 'FATAL: Disk Read Error!', 13, 10, 0
 
 times 510 - ($ - $$) db 0

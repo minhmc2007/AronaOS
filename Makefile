@@ -9,9 +9,10 @@ OBJCOPY = objcopy
 CFLAGS = -ffreestanding -nostdlib -g -m64 -fno-pic -mcmodel=kernel -mno-red-zone -Wall -Wextra
 LDFLAGS = -T kernel/linker.ld -nostdlib
 
+K_SRC = kernel/kernel.c
 K_OBJ = kernel/kernel.o
 KERNEL_ELF = kernel/kernel.elf
-KERNEL_BIN = kernel/kernel.bin  # The new flat binary target
+KERNEL_BIN = kernel/kernel.bin  # The flat binary target
 OS_IMG = aronaos.img
 
 # Default target
@@ -33,8 +34,8 @@ $(KERNEL_ELF): $(K_OBJ)
 	$(LD) $(LDFLAGS) -o $(KERNEL_ELF) $(K_OBJ)
 
 # Rule to compile the kernel
-$(K_OBJ): kernel/kernel.c
-	$(CC) $(CFLAGS) -c kernel/kernel.c -o $(K_OBJ)
+$(K_OBJ): $(K_SRC)
+	$(CC) $(CFLAGS) -c $(K_SRC) -o $(K_OBJ)
 
 # Rule to build the bootloader
 boot/boot.bin: boot/boot.asm

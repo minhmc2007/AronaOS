@@ -2,9 +2,8 @@
 [BITS 16]
 
 start:
-    ; --- Interrupt-Safe Stack Setup ---
     cli
-    mov ax, 0x8000
+    mov ax, 0x9000
     mov ss, ax
     mov sp, 0xFFFF
     sti
@@ -14,53 +13,50 @@ start:
     mov si, loading_msg
     call print_string
 
-    ; --- Enable A20 Gate ---
-    in al, 0x92
-    or al, 2
-    out 0x92, al
-
-    ; --- 1. Load Kernel ---
-    mov ax, 0x2000
+    ; Set up destination address for kernel loading
+    mov ax, 0x1000
     mov es, ax
     mov bx, 0
-    call load_disk
-    mov si, success_msg
+
+    ; Load kernel from disk
+    mov ah, 0x02
+    mov al, 32 ; Load 32 sectors
+    mov ch, 0  ; Cylinder 0
+    mov cl, 2  ; Sector 2
+    mov dh, 0  ; Head 0
+    mov dl, [boot_drive]
+    int 0x13
+    jc disk_error
+
+    mov si, kernel_msg
     call print_string
 
-    ; --- Copy Kernel to its final location ---
-    mov esi, 0x20000
-    mov edi, 0x100000
-    mov ecx, 32 * 512 / 2
-    cld
-    rep movsw
-
-    ; --- 2. Set Up Paging ---
+    ; --- Switch to 64-bit Long Mode ---
+    ; 1. Set up Page Tables
     call setup_paging
 
-    ; --- 3. Enable PAE and LME ---
+    ; 2. Load GDT
+    lgdt [gdt_ptr]
+
+    ; 3. Enable PAE
     mov eax, cr4
     or eax, 1 << 5
     mov cr4, eax
+
+    ; 4. Enable Long Mode
     mov ecx, 0xC0000080
     rdmsr
     or eax, 1 << 8
     wrmsr
 
-    ; --- 4. Maximum Compatibility Transition to Long Mode ---
-    lgdt [gdt64_ptr]
+    ; 5. Enable Paging
     mov eax, cr0
-    or eax, 1 << 0
+    or eax, 0x80000001 ; Set PG (bit 31) and PE (bit 0)
     mov cr0, eax
-    jmp gdt32_code:protected_mode_stub
 
-[BITS 32]
-protected_mode_stub:
-    mov eax, cr0
-    or eax, 1 << 31
-    mov cr0, eax
-    jmp gdt64_code:long_mode_start
+    ; 6. Jump to Long Mode
+    jmp CODE_SEG:long_mode_start
 
-[BITS 16]
 print_string:
     mov ah, 0x0e
 .loop:
@@ -72,17 +68,6 @@ print_string:
 .done:
     ret
 
-load_disk:
-    mov ah, 0x02
-    mov al, 32
-    mov ch, 0
-    mov cl, 2
-    mov dh, 0
-    mov dl, [boot_drive]
-    int 0x13
-    jc disk_error
-    ret
-
 disk_error:
     mov si, error_msg
     call print_string
@@ -90,64 +75,73 @@ disk_error:
     hlt
 
 setup_paging:
+    ; Zero out page tables (PML4, PDP, and one PD)
     mov edi, 0x1000
-    mov ecx, 4096*3
+    mov ecx, 4096 * 3
     xor eax, eax
     rep stosd
+
+    ; PML4 at 0x1000 -> points to PDP at 0x2000
     mov edi, 0x1000
-    mov cr3, edi
-    mov dword [edi], 0x2003
+    mov dword [edi], 0x2003 ; Present, R/W
+
+    ; PDP at 0x2000 -> points to PD at 0x3000
     mov edi, 0x2000
-    mov dword [edi], 0x3003
+    mov dword [edi], 0x3003 ; Present, R/W
+
+    ; Page Directory at 0x3000
+    ; This will contain 512 entries, each mapping a 2MB page, for a total of 1GB.
     mov edi, 0x3000
-    mov dword [edi], 0x00083
+    mov ecx, 512
+    mov eax, 0x00000083 ; Flags: Present, R/W, Page Size (2MB)
+.map_loop:
+    mov dword [edi], eax
+    mov dword [edi+4], 0 ; Upper 32 bits of address are 0
+    add edi, 8           ; Advance to next 64-bit entry
+    add eax, 0x200000    ; Next 2MB physical address
+    loop .map_loop
+
+    ; Load the address of the PML4 into CR3
+    mov eax, 0x1000
+    mov cr3, eax
     ret
 
-; --- GDT with both 32-bit and 64-bit descriptors ---
-gdt64:
+gdt:
     dq 0 ; Null Descriptor
-gdt32_code: equ $ - gdt64
-    ; CORRECTED: GDT definitions expanded to be syntactically valid
-    dw 0xFFFF  ; Limit
-    dw 0       ; Base
-    db 0       ; Base
-    db 0x9A    ; Access
-    db 0xCF    ; Granularity
-    db 0       ; Base
-gdt64_code: equ $ - gdt64
-    dw 0       ; Limit (ignored)
-    dw 0       ; Base (ignored)
-    db 0       ; Base (ignored)
-    db 0x9A    ; Access
-    db 0x20    ; Granularity (L-bit for 64-bit)
-    db 0       ; Base (ignored)
-gdt64_data: equ $ - gdt64
-    dw 0       ; Limit (ignored)
-    dw 0       ; Base (ignored)
-    db 0       ; Base (ignored)
-    db 0x92    ; Access
-    db 0x00    ; Granularity
-    db 0       ; Base (ignored)
-gdt64_ptr:
-    dw $ - gdt64 - 1 ; GDT size
-    dq gdt64         ; GDT base address
+CODE_SEG equ $ - gdt
+    dw 0xFFFF
+    dw 0
+    db 0
+    db 0x9A
+    db 0x20
+    db 0
+DATA_SEG equ $ - gdt
+    dw 0xFFFF
+    dw 0
+    db 0
+    db 0x92
+    db 0xCF
+    db 0
+gdt_ptr:
+    dw $ - gdt - 1
+    dq gdt
 
 [BITS 64]
 long_mode_start:
-    mov ax, gdt64_data
-    ; CORRECTED: Expanded multi-line mov instructions
-    mov ss, ax
+    mov ax, DATA_SEG
     mov ds, ax
     mov es, ax
     mov fs, ax
     mov gs, ax
+    mov ss, ax
+
     mov rsp, 0x90000
     jmp 0x100000
 
 [BITS 16]
 boot_drive  db 0
-loading_msg db 'AronaOS Bootloader v1.0 ...', 13, 10, 0
-success_msg db 'Kernel loaded. Executing...', 13, 10, 0
+loading_msg db 'Loading AronaOS bootloader ...', 13, 10, 0
+kernel_msg  db 'Loading AronaOS kernel v0.1 ...', 13, 10, 0
 error_msg   db 'FATAL: Disk Read Error!', 13, 10, 0
 
 times 510 - ($ - $$) db 0

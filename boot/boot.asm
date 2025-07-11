@@ -8,15 +8,26 @@ start:
     mov ss, ax
     mov sp, 0xFFFF
     sti
+    mov si, stack_set_msg
+    call print_string
 
     ; Save boot drive
     mov [boot_drive], dl
+    mov si, boot_drive_saved_msg
+    call print_string
+
+    ; Initialize VGA offset
+    mov ax, 0x9020
+    mov fs, ax
+    mov word [fs:0x0], 0
+    mov si, vga_init_msg
+    call print_string
 
     ; Print loading message
     mov si, loading_msg
     call print_string
 
-    ; Load kernel to 0x8000:0 (physical 0x80000) to avoid conflicts
+    ; Load kernel to 0x8000:0 (physical 0x80000)
     mov ax, 0x8000
     mov es, ax
     mov bx, 0
@@ -30,19 +41,20 @@ start:
     mov dl, [boot_drive]
     int 0x13
     jc disk_error
-
-    mov si, kernel_msg
+    mov si, kernel_loaded_msg
     call print_string
 
-    ; First enter 32-bit protected mode
+    mov si, entering_pm_msg
+    call print_string
+
+    ; Enter 32-bit protected mode
     call enter_protected_mode
-    
+
     ; This code never executes because we jump to 32-bit code
     jmp $
 
 enter_protected_mode:
     cli
-    
     ; Load GDT
     lgdt [gdt_descriptor]
     
@@ -55,6 +67,8 @@ enter_protected_mode:
     jmp CODE_SEG_32:protected_mode_start
 
 print_string:
+    push ax
+    push si
     mov ah, 0x0e
 .loop:
     lodsb
@@ -63,6 +77,8 @@ print_string:
     int 0x10
     jmp .loop
 .done:
+    pop si
+    pop ax
     ret
 
 disk_error:
@@ -83,8 +99,15 @@ protected_mode_start:
     mov ss, ax
     mov esp, 0x90000
 
-    ; Now set up paging for long mode
+    ; Print to VGA buffer
+    mov esi, pm_entered_msg
+    call print_string_vga_32
+
+    ; Set up paging for long mode
     call setup_paging_32
+
+    mov esi, paging_setup_msg
+    call print_string_vga_32
 
     ; Load 64-bit GDT
     lgdt [gdt64_descriptor]
@@ -105,37 +128,58 @@ protected_mode_start:
     or eax, 0x80000000
     mov cr0, eax
 
+    mov esi, long_mode_transition_msg
+    call print_string_vga_32
+
     ; Jump to long mode
     jmp CODE_SEG_64:long_mode_start
 
+print_string_vga_32:
+    push eax
+    push edi
+    mov edi, [0x90200]        ; Load VGA offset
+.loop:
+    lodsb
+    cmp al, 0
+    je .done
+    mov byte [0xB8000 + edi], al
+    mov byte [0xB8000 + edi + 1], 0x07 ; White on black
+    add edi, 2
+    jmp .loop
+.done:
+    mov [0x90200], edi        ; Save VGA offset
+    pop edi
+    pop eax
+    ret
+
 setup_paging_32:
-    ; Clear page tables area (16KB total)
-    mov edi, 0x1000
+    ; Clear page tables area (16KB) at 0x100000
+    mov edi, 0x100000
     mov ecx, 4096
     xor eax, eax
     rep stosd
 
-    ; Set up PML4 (Page Map Level 4)
-    mov edi, 0x1000
-    mov dword [edi], 0x2003     ; Point to PDP, present + writable
+    ; Set up PML4
+    mov edi, 0x100000
+    mov dword [edi], 0x101003  ; Point to PDP, present + writable
 
-    ; Set up PDP (Page Directory Pointer)
-    mov edi, 0x2000
-    mov dword [edi], 0x3003     ; Point to PD, present + writable
+    ; Set up PDP
+    mov edi, 0x101000
+    mov dword [edi], 0x102003  ; Point to PD, present + writable
 
-    ; Set up PD (Page Directory) - identity map first 1GB
-    mov edi, 0x3000
-    mov ecx, 512                ; 512 entries
-    mov eax, 0x00000083         ; Present + writable + 2MB pages
+    ; Set up PD - identity map first 1GB
+    mov edi, 0x102000
+    mov ecx, 512
+    mov eax, 0x00000083        ; Present + writable + 2MB pages
 .map_loop:
-    mov dword [edi], eax        ; Lower 32 bits
-    mov dword [edi + 4], 0      ; Upper 32 bits
-    add edi, 8                  ; Next entry
-    add eax, 0x200000           ; Next 2MB
+    mov dword [edi], eax
+    mov dword [edi + 4], 0
+    add edi, 8
+    add eax, 0x200000
     loop .map_loop
 
     ; Load CR3 with PML4 address
-    mov eax, 0x1000
+    mov eax, 0x100000
     mov cr3, eax
     ret
 
@@ -151,8 +195,32 @@ long_mode_start:
     mov ss, ax
     mov rsp, 0x90000
 
-    ; Jump to kernel (now at physical address 0x80000)
+    ; Print to VGA buffer
+    mov rsi, long_mode_msg
+    call print_string_vga_64
+
+    ; Jump to kernel
+    mov rsi, kernel_jump_msg
+    call print_string_vga_64
     jmp 0x80000
+
+print_string_vga_64:
+    push rax
+    push rdi
+    mov edi, [0x90200]        ; Load VGA offset (32-bit for simplicity)
+.loop:
+    lodsb
+    cmp al, 0
+    je .done
+    mov byte [0xB8000 + rdi], al
+    mov byte [0xB8000 + rdi + 1], 0x07
+    add edi, 2
+    jmp .loop
+.done:
+    mov [0x90200], edi        ; Save VGA offset
+    pop rdi
+    pop rax
+    ret
 
 ; 32-bit GDT
 [BITS 16]
@@ -181,19 +249,19 @@ gdt_descriptor:
 gdt_64:
     dq 0                        ; Null descriptor
 CODE_SEG_64 equ $ - gdt_64
-    dw 0                        ; Limit (ignored in long mode)
-    dw 0                        ; Base (ignored in long mode)
-    db 0                        ; Base (ignored in long mode)
+    dw 0                        ; Limit (ignored)
+    dw 0                        ; Base (ignored)
+    db 0                        ; Base (ignored)
     db 0x9A                     ; Access byte
     db 0x20                     ; Flags (L=1 for long mode)
-    db 0                        ; Base (ignored in long mode)
+    db 0                        ; Base (ignored)
 DATA_SEG_64 equ $ - gdt_64
-    dw 0                        ; Limit (ignored in long mode)
-    dw 0                        ; Base (ignored in long mode)
-    db 0                        ; Base (ignored in long mode)
+    dw 0                        ; Limit (ignored)
+    dw 0                        ; Base (ignored)
+    db 0                        ; Base (ignored)
     db 0x92                     ; Access byte
     db 0x00                     ; Flags
-    db 0                        ; Base (ignored in long mode)
+    db 0                        ; Base (ignored)
 
 gdt64_descriptor:
     dw $ - gdt_64 - 1           ; Size
@@ -201,8 +269,17 @@ gdt64_descriptor:
 
 ; Data section
 boot_drive      db 0
+stack_set_msg   db 'Stack set up', 13, 10, 0
+boot_drive_saved_msg db 'Boot drive saved', 13, 10, 0
+vga_init_msg    db 'VGA offset initialized', 13, 10, 0
 loading_msg     db 'Loading AronaOS bootloader ...', 13, 10, 0
-kernel_msg      db 'Loading AronaOS kernel v0.1 ...', 13, 10, 0
+kernel_loaded_msg db 'Kernel loaded successfully', 13, 10, 0
+entering_pm_msg db 'Entering protected mode', 13, 10, 0
+pm_entered_msg  db 'In protected mode', 0
+paging_setup_msg db 'Paging set up', 0
+long_mode_transition_msg db 'Transitioning to long mode', 0
+long_mode_msg   db 'In long mode', 0
+kernel_jump_msg db 'Jumping to kernel at 0x80000', 0
 error_msg       db 'FATAL: Disk Read Error!', 13, 10, 0
 
 ; Boot signature

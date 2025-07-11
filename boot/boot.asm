@@ -2,12 +2,19 @@
 [BITS 16]
 
 start:
-    cli
-    ; Set up stack in a safe location
-    mov ax, 0x9000
-    mov ss, ax
-    mov sp, 0xFFFF
-    sti
+    ; clear screen by resetting video mode
+    mov ah, 0xf
+    int 0x10
+    mov ah, 0x00
+    int 0x10
+
+    ; Dont need to set up stack here, BIOS will do it for us
+    ; cli
+    ; ; Set up stack in a safe location
+    ; mov ax, 0x9000
+    ; mov ss, ax
+    ; mov sp, 0xFFFF
+    ; sti
     ; mov si, stack_set_msg
     ; call print_string
 

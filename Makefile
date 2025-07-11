@@ -6,7 +6,7 @@ LD = ld
 AS = nasm
 OBJCOPY = objcopy
 
-CFLAGS = -ffreestanding -nostdlib -g -m64 -fno-pic -mcmodel=kernel -mno-red-zone -Wall -Wextra
+CFLAGS = -ffreestanding -nostdlib -fno-builtin -fno-pic -mcmodel=kernel -mno-red-zone
 LDFLAGS = -T kernel/linker.ld -nostdlib
 
 K_SRC = kernel/kernel.c

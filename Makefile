@@ -34,7 +34,7 @@ $(KERNEL_ELF): $(K_OBJ)
 	$(LD) $(LDFLAGS) -o $(KERNEL_ELF) $(K_OBJ)
 
 # Rule to compile the kernel
-$(K_OBJ): $(K_SRC)
+$(K_OBJ): $(K_SRC) kernel/linker.ld
 	$(CC) $(CFLAGS) -c $(K_SRC) -o $(K_OBJ)
 
 # Rule to build the bootloader
@@ -47,6 +47,6 @@ clean:
 
 # Rule to run with QEMU
 run: $(OS_IMG)
-	qemu-system-x86_64 -fda $(OS_IMG)
+	qemu-system-x86_64 $(OS_IMG)
 
 .PHONY: all clean run

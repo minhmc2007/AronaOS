@@ -2,50 +2,50 @@
 [BITS 16]
 
 start:
-    cli
-    ; Set up stack in a safe location
-    mov ax, 0x9000
-    mov ss, ax
-    mov sp, 0xFFFF
-    sti
-    mov si, stack_set_msg
-    call print_string
+    ; clear screen by resetting video mode
+    mov ah, 0xf
+    int 0x10
+    mov ah, 0x00
+    int 0x10
+
+    ; Dont need to set up stack here, BIOS will do it for us
+    ; cli
+    ; ; Set up stack in a safe location
+    ; mov ax, 0x9000
+    ; mov ss, ax
+    ; mov sp, 0xFFFF
+    ; sti
+    ; mov si, stack_set_msg
+    ; call print_string
 
     ; Save boot drive
     mov [boot_drive], dl
-    mov si, boot_drive_saved_msg
-    call print_string
+    ; mov si, boot_drive_saved_msg
+    ; call print_string
 
-    ; Initialize VGA offset
-    mov ax, 0x9020
-    mov fs, ax
-    mov word [fs:0x0], 0
-    mov si, vga_init_msg
-    call print_string
+    ; Initialize VGA offset !!!! dont need this, using this may cause some problems 
+    ; mov ax, 0x9020
+    ; mov fs, ax
+    ; mov word [fs:0x0], 0
+    ; mov si, vga_init_msg
+    ; call print_string
 
     ; Print loading message
-    mov si, loading_msg
-    call print_string
-
     ; Load kernel to 0x8000:0 (physical 0x80000)
-    mov ax, 0x8000
+    ; load at 0x100000
+    mov ax, 0x1000000
     mov es, ax
     mov bx, 0
 
     ; Load kernel from disk
     mov ah, 0x02
-    mov al, 32        ; Load 32 sectors
+    mov al, 4         ; just load 4 sector, loading 32 sectors will corrupt bios data
     mov ch, 0         ; Cylinder 0
     mov cl, 2         ; Sector 2 (first sector after bootloader)
     mov dh, 0         ; Head 0
     mov dl, [boot_drive]
     int 0x13
     jc disk_error
-    mov si, kernel_loaded_msg
-    call print_string
-
-    mov si, entering_pm_msg
-    call print_string
 
     ; Enter 32-bit protected mode
     call enter_protected_mode
@@ -99,15 +99,8 @@ protected_mode_start:
     mov ss, ax
     mov esp, 0x90000
 
-    ; Print to VGA buffer
-    mov esi, pm_entered_msg
-    call print_string_vga_32
-
     ; Set up paging for long mode
     call setup_paging_32
-
-    mov esi, paging_setup_msg
-    call print_string_vga_32
 
     ; Load 64-bit GDT
     lgdt [gdt64_descriptor]
@@ -127,9 +120,6 @@ protected_mode_start:
     mov eax, cr0
     or eax, 0x80000000
     mov cr0, eax
-
-    mov esi, long_mode_transition_msg
-    call print_string_vga_32
 
     ; Jump to long mode
     jmp CODE_SEG_64:long_mode_start
@@ -195,14 +185,12 @@ long_mode_start:
     mov ss, ax
     mov rsp, 0x90000
 
-    ; Print to VGA buffer
-    mov rsi, long_mode_msg
-    call print_string_vga_64
+    mov dword [0xb8000], 0x0a4b0a4f
+
+    jmp $
 
     ; Jump to kernel
-    mov rsi, kernel_jump_msg
-    call print_string_vga_64
-    jmp 0x80000
+    jmp 0x1000000
 
 print_string_vga_64:
     push rax
@@ -269,18 +257,13 @@ gdt64_descriptor:
 
 ; Data section
 boot_drive      db 0
-stack_set_msg   db 'Stack set up', 13, 10, 0
-boot_drive_saved_msg db 'Boot drive saved', 13, 10, 0
-vga_init_msg    db 'VGA offset initialized', 13, 10, 0
-loading_msg     db 'Loading AronaOS bootloader ...', 13, 10, 0
-kernel_loaded_msg db 'Kernel loaded successfully', 13, 10, 0
-entering_pm_msg db 'Entering protected mode', 13, 10, 0
-pm_entered_msg  db 'In protected mode', 0
-paging_setup_msg db 'Paging set up', 0
-long_mode_transition_msg db 'Transitioning to long mode', 0
-long_mode_msg   db 'In long mode', 0
-kernel_jump_msg db 'Jumping to kernel at 0x80000', 0
-error_msg       db 'FATAL: Disk Read Error!', 13, 10, 0
+; vga_init_msg    db 'VGA offset initialized', 13, 10, 0
+; loading_msg     db 'Loading AronaOS bootloader ...', 13, 10, 0
+; kernel_loaded_msg db 'Kernel loaded successfully', 13, 10, 0
+; entering_pm_msg db 'Entering protected mode', 13, 10, 0
+; long_mode_transition_msg db 'Transitioning to long mode', 0
+; long_mode_msg   db 'In long mode', 0
+error_msg       db "DRE", 13, 10, 0
 
 ; Boot signature
 times 510 - ($ - $$) db 0

@@ -3,9 +3,11 @@ ENTRY(kernel_main)
 OUTPUT_FORMAT(elf64-x86-64)
 
 SECTIONS {
-    . = 1M; /* Kernel starts at 1MB */
+    . = 0x8000; /* free area as bios specifications */
 
-    .text : { *(.text) }
+    .text : { 
+        *(.text.entry)
+        *(.text) }
     .rodata : { *(.rodata) }
     .data : { *(.data) }
     .bss : { *(.bss) }

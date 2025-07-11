@@ -1,5 +1,7 @@
-[ORG 0x7C00]
-[BITS 16]
+[org 0x7C00]
+[bits 16]
+
+KERNEL_ADDRESS equ 0x7e00
 
 start:
     ; clear screen by resetting video mode
@@ -32,14 +34,14 @@ start:
 
     ; Print loading message
     ; Load kernel to 0x8000:0 (physical 0x80000)
-    ; load at 0x100000
-    mov ax, 0x1000000
+    ; load at 0x7e00
+    mov ax, 0
     mov es, ax
-    mov bx, 0
+    mov bx, KERNEL_ADDRESS
 
     ; Load kernel from disk
     mov ah, 0x02
-    mov al, 4         ; just load 4 sector, loading 32 sectors will corrupt bios data
+    mov al, 5         ; just load 5 sector, loading 32 sectors will corrupt bios data
     mov ch, 0         ; Cylinder 0
     mov cl, 2         ; Sector 2 (first sector after bootloader)
     mov dh, 0         ; Head 0
@@ -47,24 +49,14 @@ start:
     int 0x13
     jc disk_error
 
+    cmp al, 5         ; Check if we read 5 sectors
+    jne disk_error
+
     ; Enter 32-bit protected mode
     call enter_protected_mode
 
     ; This code never executes because we jump to 32-bit code
     jmp $
-
-enter_protected_mode:
-    cli
-    ; Load GDT
-    lgdt [gdt_descriptor]
-    
-    ; Enable protected mode
-    mov eax, cr0
-    or eax, 1
-    mov cr0, eax
-    
-    ; Far jump to flush prefetch queue and enter protected mode
-    jmp CODE_SEG_32:protected_mode_start
 
 print_string:
     push ax
@@ -86,6 +78,26 @@ disk_error:
     call print_string
     cli
     hlt
+
+boot_drive      db 0
+error_msg       db "DRE", 13, 10, 0
+
+; Boot signature
+times 510 - ($ - $$) db 0
+dw 0xAA55
+
+enter_protected_mode:
+    cli
+    ; Load GDT
+    lgdt [gdt_descriptor]
+    
+    ; Enable protected mode
+    mov eax, cr0
+    or eax, 1
+    mov cr0, eax
+    
+    ; Far jump to flush prefetch queue and enter protected mode
+    jmp CODE_SEG_32:protected_mode_start
 
 ; 32-bit protected mode code
 [BITS 32]
@@ -185,30 +197,47 @@ long_mode_start:
     mov ss, ax
     mov rsp, 0x90000
 
-    mov dword [0xb8000], 0x0a4b0a4f
-
-    jmp $
+    mov esi, TEST
+    call print_
 
     ; Jump to kernel
-    jmp 0x1000000
+    jmp 0x8000
 
-print_string_vga_64:
-    push rax
-    push rdi
-    mov edi, [0x90200]        ; Load VGA offset (32-bit for simplicity)
-.loop:
-    lodsb
-    cmp al, 0
-    je .done
-    mov byte [0xB8000 + rdi], al
-    mov byte [0xB8000 + rdi + 1], 0x07
-    add edi, 2
-    jmp .loop
-.done:
-    mov [0x90200], edi        ; Save VGA offset
-    pop rdi
-    pop rax
-    ret
+; print_string_vga_64:
+;     push rax
+;     push rdi
+;     mov edi, [0x90200]        ; Load VGA offset (32-bit for simplicity)
+; .loop:
+;     lodsb
+;     cmp al, 0
+;     je .done
+;     mov byte [0xB8000 + rdi], al
+;     mov byte [0xB8000 + rdi + 1], 0x07
+;     add edi, 2
+;     jmp .loop
+; .done:
+;     mov [0x90200], edi        ; Save VGA offset
+;     pop rdi
+;     pop rax
+;     ret
+termLine: dd 0xb8000
+TEST: db "OK NOW!", 0
+print_:
+    mov ebx, [termLine]
+    .loop:
+        mov ax, 0x0f00
+        mov al, [esi]
+        cmp al, 0
+        je .end
+
+        mov [ebx], ax
+
+        add ebx, 2
+        inc esi
+        jmp .loop
+    .end:
+        add dword [termLine], 80*2
+        ret
 
 ; 32-bit GDT
 [BITS 16]
@@ -256,15 +285,13 @@ gdt64_descriptor:
     dd gdt_64                   ; Address
 
 ; Data section
-boot_drive      db 0
+
 ; vga_init_msg    db 'VGA offset initialized', 13, 10, 0
 ; loading_msg     db 'Loading AronaOS bootloader ...', 13, 10, 0
 ; kernel_loaded_msg db 'Kernel loaded successfully', 13, 10, 0
 ; entering_pm_msg db 'Entering protected mode', 13, 10, 0
 ; long_mode_transition_msg db 'Transitioning to long mode', 0
 ; long_mode_msg   db 'In long mode', 0
-error_msg       db "DRE", 13, 10, 0
 
-; Boot signature
-times 510 - ($ - $$) db 0
-dw 0xAA55
+
+abc db "AronaOS Bootloader", 0

@@ -23,18 +23,18 @@ $(OS_IMG): boot/boot.bin $(KERNEL_BIN)
 	dd if=/dev/zero of=$(OS_IMG) bs=512 count=2880
 	dd if=boot/boot.bin of=$(OS_IMG) conv=notrunc
 	# Write the flat binary kernel, NOT the ELF file
-	dd if=$(KERNEL_BIN) of=$(OS_IMG) bs=512 seek=1 conv=notrunc
+	dd if=$(KERNEL_BIN) of=$(OS_IMG) bs=512 seek=2 conv=notrunc
 
 # Rule to create the flat binary from the ELF file
-$(KERNEL_BIN): $(KERNEL_ELF)
+$(KERNEL_BIN): $(KERNEL_ELF) boot/boot.bin 
 	$(OBJCOPY) -O binary $(KERNEL_ELF) $(KERNEL_BIN)
 
 # Rule to link the kernel ELF file
-$(KERNEL_ELF): $(K_OBJ)
+$(KERNEL_ELF): $(K_OBJ) kernel/linker.ld
 	$(LD) $(LDFLAGS) -o $(KERNEL_ELF) $(K_OBJ)
 
 # Rule to compile the kernel
-$(K_OBJ): $(K_SRC) kernel/linker.ld
+$(K_OBJ): $(K_SRC) 
 	$(CC) $(CFLAGS) -c $(K_SRC) -o $(K_OBJ)
 
 # Rule to build the bootloader
@@ -47,6 +47,6 @@ clean:
 
 # Rule to run with QEMU
 run: $(OS_IMG)
-	qemu-system-x86_64 $(OS_IMG)
+	qemu-system-x86_64 $(OS_IMG) -no-reboot
 
 .PHONY: all clean run

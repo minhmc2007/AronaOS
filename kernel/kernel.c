@@ -1,6 +1,6 @@
 /*
  * kernel/kernel.c
- * The correct 64-bit kernel code.
+ * 64-bit kernel code.
  */
 #include <stdalign.h>
 void print_char(char c, int row, int col, char color) {

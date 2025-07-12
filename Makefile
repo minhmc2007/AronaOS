@@ -4,7 +4,7 @@ LD=ld
 AS=nasm
 OBJCOPY=objcopy
 
-CFLAGS = -ffreestanding -nostdlib -fno-builtin -fno-pic -mcmodel=kernel -mno-red-zone
+CFLAGS = -ffreestanding -nostdlib -fno-builtin -fno-pic -mcmodel=kernel -mno-red-zone -I ./
 LDFLAGS = -T preKernel/linker.ld -nostdlib
 asmPreKernelFlags = -f elf64
 

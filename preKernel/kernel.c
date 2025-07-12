@@ -47,7 +47,9 @@ void update_cursor() {
   // Output low byte
   asm volatile("outb %0, %1" : : "a"((uint8_t)(pos & 0xFF)), "Nd"(0x3D4));
   // Output high byte
-  asm volatile("outb %0, %1" : : "a"((uint8_t)((pos >> 8) & 0xFF)), "Nd"(0x3D4));
+  asm volatile("outb %0, %1"
+               :
+               : "a"((uint8_t)((pos >> 8) & 0xFF)), "Nd"(0x3D4));
 }
 
 void newline() {
@@ -59,7 +61,8 @@ void newline() {
       VGA_BUFFER[i] = VGA_BUFFER[i + VGA_WIDTH];
     }
     // Clear last line
-    for (int i = (VGA_HEIGHT - 1) * VGA_WIDTH; i < VGA_HEIGHT * VGA_WIDTH; i++) {
+    for (int i = (VGA_HEIGHT - 1) * VGA_WIDTH; i < VGA_HEIGHT * VGA_WIDTH;
+         i++) {
       VGA_BUFFER[i] = (uint16_t)color << 8 | ' ';
     }
   }
@@ -72,18 +75,22 @@ void print_char(char c) {
   } else if (c == '\b') {
     if (cursor_col > 0) {
       cursor_col--;
-      VGA_BUFFER[cursor_row * VGA_WIDTH + cursor_col] = (uint16_t)color << 8 | ' ';
+      VGA_BUFFER[cursor_row * VGA_WIDTH + cursor_col] =
+          (uint16_t)color << 8 | ' ';
       update_cursor();
     }
   } else {
     VGA_BUFFER[cursor_row * VGA_WIDTH + cursor_col] = (uint16_t)color << 8 | c;
-    if (++cursor_col >= VGA_WIDTH) newline();
-    else update_cursor();
+    if (++cursor_col >= VGA_WIDTH)
+      newline();
+    else
+      update_cursor();
   }
 }
 
 void print_str(const char *str) {
-  while (*str) print_char(*str++);
+  while (*str)
+    print_char(*str++);
 }
 
 // Keyboard functions
@@ -94,7 +101,8 @@ uint8_t keyboard_read() {
 }
 
 uint8_t get_key() {
-  if (!(keyboard_read() & 1)) return 0;
+  if (!(keyboard_read() & 1))
+    return 0;
 
   uint8_t key;
   asm volatile("inb %1, %0" : "=a"(key) : "Nd"(0x60));
@@ -105,11 +113,11 @@ uint8_t get_key() {
 char get_ascii(uint8_t scancode) {
   // US QWERTY keyboard mapping
   static const char keymap[128] = {
-    0, 0, '1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '-', '=', '\b', '\t',
-    'q', 'w', 'e', 'r', 't', 'y', 'u', 'i', 'o', 'p', '[', ']', '\n', 0,
-    'a', 's', 'd', 'f', 'g', 'h', 'j', 'k', 'l', ';', '\'', '`', 0, '\\',
-    'z', 'x', 'c', 'v', 'b', 'n', 'm', ',', '.', '/', 0, '*', 0, ' ', 0
-  };
+      0,   0,   '1',  '2',  '3',  '4', '5', '6',  '7', '8', '9', '0',
+      '-', '=', '\b', '\t', 'q',  'w', 'e', 'r',  't', 'y', 'u', 'i',
+      'o', 'p', '[',  ']',  '\n', 0,   'a', 's',  'd', 'f', 'g', 'h',
+      'j', 'k', 'l',  ';',  '\'', '`', 0,   '\\', 'z', 'x', 'c', 'v',
+      'b', 'n', 'm',  ',',  '.',  '/', 0,   '*',  0,   ' ', 0};
 
   if (scancode < sizeof(keymap)) {
     return keymap[scancode];
@@ -149,7 +157,8 @@ void shell() {
     // Read command
     while (1) {
       uint8_t scancode = get_key();
-      if (!scancode) continue;
+      if (!scancode)
+        continue;
 
       // Handle special keys
       if (scancode == 0x1C) { // Enter
@@ -185,5 +194,6 @@ void kernel_main() {
   print_str("Hello from AronaOS 64-bit!\n");
   shell();
 
-  for (;;) asm("hlt");
+  for (;;)
+    asm("hlt");
 }

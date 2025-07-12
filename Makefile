@@ -47,7 +47,7 @@ $(preKernelOutput):  $(preKernelELF)
 	
 $(preKernelELF): $(preKernelOBJ) preKernel/linker.ld
 	@echo "Linking $@..."
-	@$(LD) $< -o $@ $(LDFLAGS)
+	@$(LD) $(preKernelOBJ) -o $@ $(LDFLAGS)
 
 %.c.preKernel.o: %.c
 	@echo "[CC] $< -> $@"
@@ -62,5 +62,5 @@ $(preKernelELF): $(preKernelOBJ) preKernel/linker.ld
 	@$(AS) $(asmPreKernelFlags) $< -o $@ 
 
 clean:
-	@rm $(shell find ./ -type f -name "*.o") $(preKernelELF) $(preKernelOutput) $(imgOutput)
+	@rm $(shell find ./ -type f -name "*.o") $(preKernelELF) $(preKernelOutput) $(imgOutput) $(bootEntryOutput)
 	@echo Okay

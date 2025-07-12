@@ -1,52 +1,66 @@
-# Makefile for a 64-bit OS on a native x86_64 host
-# This version creates a flat binary kernel and writes it to the image.
-
-CC = gcc
-LD = ld
-AS = nasm
-OBJCOPY = objcopy
+CC=gcc
+CXX=g++
+LD=ld
+AS=nasm
+OBJCOPY=objcopy
 
 CFLAGS = -ffreestanding -nostdlib -fno-builtin -fno-pic -mcmodel=kernel -mno-red-zone
-LDFLAGS = -T kernel/linker.ld -nostdlib
+LDFLAGS = -T preKernel/linker.ld -nostdlib
+asmPreKernelFlags = -f elf64
 
-K_SRC = kernel/kernel.c
-K_OBJ = kernel/kernel.o
-KERNEL_ELF = kernel/kernel.elf
-KERNEL_BIN = kernel/kernel.bin  # The flat binary target
-OS_IMG = aronaos.img
+preKernelFolder=preKernel
+bootEntryFolder=boot
+KernelFolder=kernel
 
-# Default target
-all: $(OS_IMG)
+preKernelOutput=$(preKernelFolder)/preKernel.bin
+preKernelELF=$(preKernelFolder)/preKernel.elf
+bootEntryOutput=$(bootEntryFolder)/boot.bin
 
-# Rule to build the final OS image
-$(OS_IMG): boot/boot.bin $(KERNEL_BIN)
-	dd if=/dev/zero of=$(OS_IMG) bs=512 count=2880
-	dd if=boot/boot.bin of=$(OS_IMG) conv=notrunc
-	# Write the flat binary kernel, NOT the ELF file
-	dd if=$(KERNEL_BIN) of=$(OS_IMG) bs=512 seek=2 conv=notrunc
+preKernelSRC=$(shell find $(preKernelFolder) -type f -name "*.c") $(shell find $(preKernelFolder) -type f -name "*.asm") $(shell find $(preKernelFolder) -type f -name "*.cpp")
+preKernelOBJ=$(patsubst %, %.preKernel.o, $(preKernelSRC))
 
-# Rule to create the flat binary from the ELF file
-$(KERNEL_BIN): $(KERNEL_ELF) boot/boot.bin 
-	$(OBJCOPY) -O binary $(KERNEL_ELF) $(KERNEL_BIN)
+bootEntrySRC=$(bootEntryFolder)/boot.asm
 
-# Rule to link the kernel ELF file
-$(KERNEL_ELF): $(K_OBJ) kernel/linker.ld
-	$(LD) $(LDFLAGS) -o $(KERNEL_ELF) $(K_OBJ)
+imgOutput=aronaos.img
 
-# Rule to compile the kernel
-$(K_OBJ): $(K_SRC) 
-	$(CC) $(CFLAGS) -c $(K_SRC) -o $(K_OBJ)
+checkBuildStatus: $(imgOutput)
+	@echo "Okay"
 
-# Rule to build the bootloader
-boot/boot.bin: boot/boot.asm
-	$(AS) -f bin boot/boot.asm -o boot/boot.bin
+run: $(imgOutput)
+	@echo "Running [$<]"
+	@qemu-system-x86_64 $< -no-reboot -m 1G
 
-# Rule to clean up build files
+$(imgOutput): $(bootEntryOutput) $(preKernelOutput)
+	@dd if=/dev/zero of=$(imgOutput) bs=512 count=2880
+	@dd if=$(bootEntryOutput) of=$(imgOutput) conv=notrunc
+
+	@dd if=$(preKernelOutput) of=$(imgOutput) bs=512 seek=2 conv=notrunc
+	@echo "Created disk img!"
+
+$(bootEntryOutput): $(bootEntrySRC)
+	@echo "[AS] $< -> $@"
+	@$(AS) -f bin $< -o $@
+
+$(preKernelOutput):  $(preKernelELF)
+	@echo "Convert $< to $@"
+	@$(OBJCOPY) -O binary $< $@
+	
+$(preKernelELF): $(preKernelOBJ) preKernel/linker.ld
+	@echo "Linking $@..."
+	@$(LD) $< -o $@ $(LDFLAGS)
+
+%.c.preKernel.o: %.c
+	@echo "[CC] $< -> $@"
+	@$(CC) -c $< -o $@ $(CFLAGS) 
+
+%.cpp.preKernel.o: %.cpp
+	@echo "[CXX] $< -> $@"
+	@$(CXX) -c $< -o $@ $(CFLAGS) 
+
+%.asm.preKernel.o: %.asm
+	@echo "[AS] $< -> $@"
+	@$(AS) $(asmPreKernelFlags) $< -o $@ 
+
 clean:
-	rm -f boot/*.bin kernel/*.o $(KERNEL_ELF) $(KERNEL_BIN) $(OS_IMG)
-
-# Rule to run with QEMU
-run: $(OS_IMG)
-	qemu-system-x86_64 $(OS_IMG) -no-reboot
-
-.PHONY: all clean run
+	@rm $(shell find ./ -type f -name "*.o") $(preKernelELF) $(preKernelOutput) $(imgOutput)
+	@echo Okay

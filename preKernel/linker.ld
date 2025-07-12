@@ -7,8 +7,10 @@ SECTIONS {
 
     .text : { 
         *(.text.entry)
-        *(.text) }
-    .rodata : { *(.rodata) }
+        *(.text) 
+    }
+
+    .rodata (READONLY) : { *(.rodata) }
     .data : { *(.data) }
     .bss : { *(.bss) }
 

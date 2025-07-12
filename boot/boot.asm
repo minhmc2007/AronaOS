@@ -118,6 +118,8 @@ protected_mode_start:
     mov ss, ax
     mov esp, 0x90000
 
+    jmp 0x8000
+
     ; Set up paging for long mode
     call setup_paging_32
 

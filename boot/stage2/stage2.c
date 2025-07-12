@@ -194,7 +194,7 @@ void shell() {
 
 const char int2hex[16] = {'0', '1', '2', '3', '4', '5', '6', '7',
                           '8', '9', 'A', 'B', 'C', 'D', 'E', 'F'};
-void printHex(uint64_t v) {
+void printHex(uint32_t v) {
   char output[17];
   int c = 16;
 
@@ -219,7 +219,7 @@ void printHex(uint64_t v) {
   }
 }
 
-void printUint(uint64_t v) {
+void printUint(uint32_t v) {
   char output[20];
   int c = 19;
 
@@ -281,7 +281,7 @@ void checkMemoryMap() {
 void preKernelMain() __attribute__((section(".text.entry")));
 void preKernelMain() {
   clear_screen();
-  print_str("Hello from AronaOS 64-bit!\n");
+  print_str("Hello from Arona bootloader stage 2!\n");
 
   void *p = scanBootTable("TUMP");
   memoryMapPointer = p;

@@ -47,7 +47,7 @@ $(preKernelOutput):  $(preKernelELF)
 	
 $(preKernelELF): $(preKernelOBJ) preKernel/linker.ld
 	@echo "Linking $@..."
-	@$(LD) $(preKernelOBJ) -o $@ $(LDFLAGS)
+	@$(LD) -o $@ $(LDFLAGS) $(preKernelOBJ)
 
 %.c.preKernel.o: %.c
 	@echo "[CC] $< -> $@"

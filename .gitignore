@@ -1,0 +1,6 @@
+boot/boot.bin
+*.c.preKernel.o
+*.cpp.preKernel.o
+*.asm.preKernel.o
+preKernel/preKernel.bin
+preKernel/preKernel.elf

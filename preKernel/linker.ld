@@ -1,5 +1,5 @@
 /* 64-bit Linker Script */
-ENTRY(kernel_main)
+ENTRY(preKernelMain)
 OUTPUT_FORMAT(elf64-x86-64)
 
 SECTIONS {

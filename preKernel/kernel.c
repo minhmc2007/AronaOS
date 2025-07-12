@@ -188,8 +188,8 @@ void shell() {
   }
 }
 
-void kernel_main() __attribute__((section(".text.entry")));
-void kernel_main() {
+void preKernelMain() __attribute__((section(".text.entry")));
+void preKernelMain() {
   clear_screen();
   print_str("Hello from AronaOS 64-bit!\n");
   shell();

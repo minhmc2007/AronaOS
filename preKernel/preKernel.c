@@ -2,6 +2,7 @@
  * kernel/kernel.c
  * 64-bit kernel with shell
  */
+#include "memoryMap/memoryMap.h"
 #include <stdalign.h>
 #include <stdint.h>
 
@@ -10,9 +11,11 @@
 #define CMD_BUFFER_SIZE 256
 
 static uint16_t *const VGA_BUFFER = (uint16_t *)0xB8000;
-static int cursor_row = 0;
+static int cursor_row = 1;
 static int cursor_col = 0;
 static uint8_t color = 0x0A; // Green on black
+
+void checkMemoryMap();
 
 // Custom string functions
 int custom_strcmp(const char *a, const char *b) {
@@ -47,7 +50,9 @@ void update_cursor() {
   // Output low byte
   asm volatile("outb %0, %1" : : "a"((uint8_t)(pos & 0xFF)), "Nd"(0x3D4));
   // Output high byte
-  asm volatile("outb %0, %1" : : "a"((uint8_t)((pos >> 8) & 0xFF)), "Nd"(0x3D4));
+  asm volatile("outb %0, %1"
+               :
+               : "a"((uint8_t)((pos >> 8) & 0xFF)), "Nd"(0x3D4));
 }
 
 void newline() {
@@ -59,7 +64,8 @@ void newline() {
       VGA_BUFFER[i] = VGA_BUFFER[i + VGA_WIDTH];
     }
     // Clear last line
-    for (int i = (VGA_HEIGHT - 1) * VGA_WIDTH; i < VGA_HEIGHT * VGA_WIDTH; i++) {
+    for (int i = (VGA_HEIGHT - 1) * VGA_WIDTH; i < VGA_HEIGHT * VGA_WIDTH;
+         i++) {
       VGA_BUFFER[i] = (uint16_t)color << 8 | ' ';
     }
   }
@@ -72,20 +78,23 @@ void print_char(char c) {
   } else if (c == '\b') {
     if (cursor_col > 0) {
       cursor_col--;
-      VGA_BUFFER[cursor_row * VGA_WIDTH + cursor_col] = (uint16_t)color << 8 | ' ';
+      VGA_BUFFER[cursor_row * VGA_WIDTH + cursor_col] =
+          (uint16_t)color << 8 | ' ';
       update_cursor();
     }
   } else {
     VGA_BUFFER[cursor_row * VGA_WIDTH + cursor_col] = (uint16_t)color << 8 | c;
-    if (++cursor_col >= VGA_WIDTH) newline();
-    else update_cursor();
+    if (++cursor_col >= VGA_WIDTH)
+      newline();
+    else
+      update_cursor();
   }
 }
 
 void print_str(const char *str) {
-  while (*str) print_char(*str++);
+  while (*str)
+    print_char(*str++);
 }
-
 // Keyboard functions
 uint8_t keyboard_read() {
   uint8_t status;
@@ -94,7 +103,8 @@ uint8_t keyboard_read() {
 }
 
 uint8_t get_key() {
-  if (!(keyboard_read() & 1)) return 0;
+  if (!(keyboard_read() & 1))
+    return 0;
 
   uint8_t key;
   asm volatile("inb %1, %0" : "=a"(key) : "Nd"(0x60));
@@ -105,11 +115,11 @@ uint8_t get_key() {
 char get_ascii(uint8_t scancode) {
   // US QWERTY keyboard mapping
   static const char keymap[128] = {
-    0, 0, '1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '-', '=', '\b', '\t',
-    'q', 'w', 'e', 'r', 't', 'y', 'u', 'i', 'o', 'p', '[', ']', '\n', 0,
-    'a', 's', 'd', 'f', 'g', 'h', 'j', 'k', 'l', ';', '\'', '`', 0, '\\',
-    'z', 'x', 'c', 'v', 'b', 'n', 'm', ',', '.', '/', 0, '*', 0, ' ', 0
-  };
+      0,   0,   '1',  '2',  '3',  '4', '5', '6',  '7', '8', '9', '0',
+      '-', '=', '\b', '\t', 'q',  'w', 'e', 'r',  't', 'y', 'u', 'i',
+      'o', 'p', '[',  ']',  '\n', 0,   'a', 's',  'd', 'f', 'g', 'h',
+      'j', 'k', 'l',  ';',  '\'', '`', 0,   '\\', 'z', 'x', 'c', 'v',
+      'b', 'n', 'm',  ',',  '.',  '/', 0,   '*',  0,   ' ', 0};
 
   if (scancode < sizeof(keymap)) {
     return keymap[scancode];
@@ -120,7 +130,7 @@ char get_ascii(uint8_t scancode) {
 // Shell functions
 void shell_execute(const char *cmd) {
   if (custom_strcmp(cmd, "help") == 0) {
-    print_str("Available commands: help, about, echo, clear\n");
+    print_str("Available commands: help, about, echo, clear, checkmm\n");
   } else if (custom_strcmp(cmd, "about") == 0) {
     print_str("AronaOS 64-bit\nCreated by minhmc2007 and thisisaname1928\n");
   } else if (custom_strncmp(cmd, "echo ", 5) == 0) {
@@ -128,7 +138,9 @@ void shell_execute(const char *cmd) {
     print_char('\n');
   } else if (custom_strcmp(cmd, "clear") == 0) {
     clear_screen();
-  } else if (*cmd) {
+  } else if (custom_strcmp(cmd, "checkmm") == 0)
+    checkMemoryMap();
+  else if (*cmd) {
     print_str("Unknown command: ");
     print_str(cmd);
     print_str("\nType 'help' for commands\n");
@@ -149,7 +161,8 @@ void shell() {
     // Read command
     while (1) {
       uint8_t scancode = get_key();
-      if (!scancode) continue;
+      if (!scancode)
+        continue;
 
       // Handle special keys
       if (scancode == 0x1C) { // Enter
@@ -179,11 +192,102 @@ void shell() {
   }
 }
 
-void kernel_main() __attribute__((section(".text.entry")));
-void kernel_main() {
+const char int2hex[16] = {'0', '1', '2', '3', '4', '5', '6', '7',
+                          '8', '9', 'A', 'B', 'C', 'D', 'E', 'F'};
+void printHex(uint64_t v) {
+  char output[17];
+  int c = 16;
+
+  if (v == 0) {
+    print_str("0x0");
+    return;
+  }
+
+  while (v != 0) {
+    int tmp = v % 16;
+
+    output[c] = int2hex[tmp];
+
+    v /= 16;
+
+    c--;
+  }
+
+  print_str("0X");
+  for (c = c + 1; c < 17; c++) {
+    print_char(output[c]);
+  }
+}
+
+void printUint(uint64_t v) {
+  char output[20];
+  int c = 19;
+
+  if (v == 0) {
+    print_char(48);
+    return;
+  }
+
+  while (v != 0) {
+    int tmp = v % 10;
+
+    output[c] = tmp + 48;
+
+    v /= 10;
+
+    c--;
+  }
+
+  for (c = c + 1; c < 20; c++) {
+    print_char(output[c]);
+  }
+}
+
+UpperMemoryMap *mm;
+TUMPPointer *memoryMapPointer;
+
+void checkMemoryMap() {
+  mm = (UpperMemoryMap *)memoryMapPointer->memoryMapPointer;
+  int l = memoryMapPointer->memoryMapLength;
+  uint64_t totalSize = 0;
+  print_str("Memory map has ");
+  printUint(l);
+  print_str(" entries\n");
+
+  for (int i = 0; i < l; i++) {
+    totalSize += mm[i].length;
+    printUint(i);
+    print_str(". Address:");
+    printHex(mm[i].baseAddr);
+    print_str(" Size:");
+    printUint(mm[i].length);
+    print_str(" Type: ");
+
+    if (mm[i].type == 1)
+      print_str("Available");
+    else if (mm[i].type == 2)
+      print_str("Unavailable");
+    else
+      print_str("???");
+
+    newline();
+  }
+
+  print_str("Total ram size: ");
+  printUint(totalSize / 1024 / 1024);
+  print_str(" MB\n");
+}
+
+void preKernelMain() __attribute__((section(".text.entry")));
+void preKernelMain() {
   clear_screen();
   print_str("Hello from AronaOS 64-bit!\n");
+
+  void *p = scanBootTable("TUMP");
+  memoryMapPointer = p;
+
   shell();
 
-  for (;;) asm("hlt");
+  for (;;)
+    asm("hlt");
 }

@@ -1,8 +1,6 @@
 [org 0x7C00]
 [bits 16]
-
 KERNEL_ADDRESS equ 0x7e00
-
 start:
     ; clear screen by resetting video mode
     mov ah, 0xf
@@ -41,7 +39,7 @@ start:
 
     ; Load kernel from disk
     mov ah, 0x02
-    mov al, 5         ; just load 5 sector, loading 32 sectors will corrupt bios data
+    mov al, 10        ; load 10 sector
     mov ch, 0         ; Cylinder 0
     mov cl, 2         ; Sector 2 (first sector after bootloader)
     mov dh, 0         ; Head 0
@@ -49,8 +47,10 @@ start:
     int 0x13
     jc disk_error
 
-    cmp al, 5         ; Check if we read 5 sectors
+    cmp al, 10         ; Check if we read 10 sectors
     jne disk_error
+
+    call getUpperMemoryMap
 
     ; Enter 32-bit protected mode
     call enter_protected_mode
@@ -73,6 +73,8 @@ print_string:
     pop ax
     ret
 
+
+
 disk_error:
     mov si, error_msg
     call print_string
@@ -82,9 +84,14 @@ disk_error:
 boot_drive      db 0
 error_msg       db "DRE", 13, 10, 0
 
+%include "boot/getMemoryMap.asm"
+
+db "E"
 ; Boot signature
 times 510 - ($ - $$) db 0
 dw 0xAA55
+
+stage2Begin:
 
 enter_protected_mode:
     cli
@@ -195,7 +202,8 @@ long_mode_start:
     mov fs, ax
     mov gs, ax
     mov ss, ax
-    mov rsp, 0x90000
+    mov rsp, 0x101000 ; 4KB for stack
+    mov rbp, rsp
 
     mov esi, TEST
     call print_
@@ -295,3 +303,5 @@ gdt64_descriptor:
 
 
 abc db "AronaOS Bootloader", 0
+
+times 512 - ($ - stage2Begin) db 0

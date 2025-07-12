@@ -4,7 +4,7 @@ LD=ld
 AS=nasm
 OBJCOPY=objcopy
 
-CFLAGS = -m64 -ffreestanding -nostdlib -fno-builtin -fno-pic -mcmodel=kernel -mno-red-zone -I ./
+CFLAGS = -fno-stack-protector -m64 -ffreestanding -nostdlib -fno-builtin -fno-pic -mcmodel=kernel -mno-red-zone -I ./
 LDFLAGS = -T preKernel/linker.ld -nostdlib
 asmPreKernelFlags = -f elf64
 
@@ -19,7 +19,7 @@ bootEntryOutput=$(bootEntryFolder)/boot.bin
 preKernelSRC=$(shell find $(preKernelFolder) -type f -name "*.c") $(shell find $(preKernelFolder) -type f -name "*.asm") $(shell find $(preKernelFolder) -type f -name "*.cpp")
 preKernelOBJ=$(patsubst %, %.preKernel.o, $(preKernelSRC))
 
-bootEntrySRC=$(bootEntryFolder)/boot.asm
+bootEntrySRC=$(shell find boot -type f -name "*.asm")
 
 imgOutput=aronaos.img
 
@@ -38,8 +38,8 @@ $(imgOutput): $(bootEntryOutput) $(preKernelOutput)
 	@echo "Created disk img!"
 
 $(bootEntryOutput): $(bootEntrySRC)
-	@echo "[AS] $< -> $@"
-	@$(AS) -f bin $< -o $@
+	@echo "[AS] boot/boot.asm -> $@"
+	@$(AS) -f bin boot/boot.asm -o $@
 
 $(preKernelOutput):  $(preKernelELF)
 	@echo "Convert $< to $@"

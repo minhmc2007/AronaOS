@@ -75,12 +75,19 @@ print_string:
     pop ax
     ret
 
+pm2rmCTest:
+    mov si, ttt
+    call print_string
+    ret
+ttt db "OKAY??", 13, 10, 0
+
 db "DRET"
-dd disk_error
+dd pm2rmCTest
 disk_error:
     mov si, error_msg
     call print_string
-    ret
+    hlt
+    jmp $
 
 boot_drive      db 0
 error_msg       db "DRE", 13, 10, 0

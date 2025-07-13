@@ -118,7 +118,10 @@ protected_mode_start:
     mov ss, ax
     ; use bios stack
 
-    call pm2rm
+    mov si, abc
+    mov dword [PM2RM_CALL_ADDRESS], print_string
+    mov dword [PM2RM_RETURN_ADDRESS], 0x8000
+    jmp pm2rm
 
     jmp 0x8000
 

@@ -31,13 +31,31 @@ rm:
     lidt [IDTR16]
     sti
 
-    mov si, t
-    call print_string
+.pm2rmCaller:
+    call [PM2RM_CALL_ADDRESS]
 
-    hlt
-    jmp $
+.rm2pm:
+.enterProtectedMode:
+    cli
+    lgdt [gdt_descriptor]
+    
+    mov eax, cr0
+    mov [savedCr0], eax
+    or eax, 1
+    mov cr0, eax
+    
+    jmp CODE_SEG_32:.protectedModeStart
 
-t db "okay back to realmode done!", 0
+[BITS 32]
+.protectedModeStart:
+    mov ax, DATA_SEG_32
+    mov ds, ax
+    mov es, ax
+    mov fs, ax
+    mov gs, ax
+    mov ss, ax
+
+    jmp [PM2RM_RETURN_ADDRESS]
 
 IDTR16:
     dw 0x3FF
@@ -64,4 +82,9 @@ GDT16:
         db 0b10010010 ; access bit
         db 0b11000000 ; flags + high limit
         db 0          ; high base
-    .END:  
+    .END:
+
+PM2RM_CALL_ADDRESS:
+    dw 0
+PM2RM_RETURN_ADDRESS:
+    dw 0

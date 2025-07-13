@@ -12,7 +12,6 @@ void *scanBootTable(const char *magic) {
 
   for (int i = 0; i < 2048; i++) { // search through 1024 bytes
     if (offset[i] == magic[0]) {
-      int j = 1;
       int notFound = 0;
       for (int j = 1; j < getStringLength(magic); j++) {
         if (offset[i + j] != magic[j]) {

@@ -1,3 +1,4 @@
+#include "disk/disk.h"
 #include "memoryMap/memoryMap.h"
 #include <stdalign.h>
 #include <stdint.h>
@@ -210,6 +211,11 @@ void checkMemoryMap() {
   print_str(" MB\n");
 }
 
+void hlt() {
+  for (;;)
+    asm("hlt");
+}
+
 void preKernelMain() __attribute__((section(".text.entry")));
 void preKernelMain() {
   print_str("Hello from Arona bootloader stage 2!\n");
@@ -225,12 +231,30 @@ void preKernelMain() {
 
   printHex((uint32_t)pm2rm);
 
-  uint32_t *f = scanBootTable("DRET");
+  DLD *d = scanBootTable("DLD");
 
-  newline();
-  pm2rm(*f);
   checkMemoryMap();
+  newline();
+  if (d->diskLoadData == 0) {
+    print_str("SUSSY");
+    hlt();
+  }
 
-  for (;;)
-    asm("hlt");
+  d->DAP.LBA = 0;
+  pm2rm(d->diskLoadData);
+
+  if (d->result) {
+    print_str("Read disk test passed!\n");
+
+    char *offset = (char *)d->outputAddress;
+
+    for (int i = 0; i < 2048; i++) { // perform a small test
+      if (offset[i] >= 48 && offset[i] <= 126) {
+        print_char(offset[i]);
+      }
+    }
+  } else
+    print_str("UUU ERROR WHILE READ DISK!\n");
+
+  hlt();
 }

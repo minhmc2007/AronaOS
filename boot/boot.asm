@@ -11,30 +11,8 @@ start:
     mov ah, 0x00
     int 0x10
 
-    ; Dont need to set up stack here, BIOS will do it for us
-    ; cli
-    ; ; Set up stack in a safe location
-    ; mov ax, 0x9000
-    ; mov ss, ax
-    ; mov sp, 0xFFFF
-    ; sti
-    ; mov si, stack_set_msg
-    ; call print_string
-
     ; Save boot drive
     mov [boot_drive], dl
-    ; mov si, boot_drive_saved_msg
-    ; call print_string
-
-    ; Initialize VGA offset !!!! dont need this, using this may cause some problems 
-    ; mov ax, 0x9020
-    ; mov fs, ax
-    ; mov word [fs:0x0], 0
-    ; mov si, vga_init_msg
-    ; call print_string
-
-    ; Print loading message
-    ; Load kernel to 0x8000:0 (physical 0x80000)
     ; load at 0x7e00
     mov ax, 0
     mov es, ax
@@ -46,12 +24,15 @@ start:
     mov ch, 0         ; Cylinder 0
     mov cl, 2         ; Sector 2 (first sector after bootloader)
     mov dh, 0         ; Head 0
-    mov dl, [boot_drive]
+    mov dl, byte [boot_drive]
     int 0x13
     jc disk_error
 
     cmp al, 10         ; Check if we read 10 sectors
     jne disk_error
+
+    mov al, [boot_drive]
+    mov [DLD.bootDrive], al
 
     call getUpperMemoryMap
     ; Enter 32-bit protected mode
@@ -75,14 +56,6 @@ print_string:
     pop ax
     ret
 
-pm2rmCTest:
-    mov si, ttt
-    call print_string
-    ret
-ttt db "OKAY??", 13, 10, 0
-
-db "DRET"
-dd pm2rmCTest
 disk_error:
     mov si, error_msg
     call print_string
@@ -94,17 +67,32 @@ error_msg       db "DRE", 13, 10, 0
 
 %include "boot/pm2rm.asm"
 
-
 savedCr0: dd 0
 db "E"
 ; Boot signature
-times 510 - ($ - $$) db 0
+times 440 - ($ - $$) db 0
+
+uniqueDiskID: dd 0
+reserved: dw 0
+partitions:
+.partition1:
+    dq 0
+    dq 0
+.partition2:
+    dq 0
+    dq 0
+.partition3:
+    dq 0
+    dq 0
+.partition4:
+    dq 0
+    dq 0
 dw 0xAA55
 
 stage2Begin:
-
 %include "boot/getMemoryMap.asm"
 
+[bits 16]
 enter_protected_mode:
     cli
     ; Load GDT
@@ -159,24 +147,6 @@ setupLongMode:
     ; Jump to long mode
     jmp CODE_SEG_64:long_mode_start
 
-print_string_vga_32:
-    push eax
-    push edi
-    mov edi, [0x90200]        ; Load VGA offset
-.loop:
-    lodsb
-    cmp al, 0
-    je .done
-    mov byte [0xB8000 + edi], al
-    mov byte [0xB8000 + edi + 1], 0x07 ; White on black
-    add edi, 2
-    jmp .loop
-.done:
-    mov [0x90200], edi        ; Save VGA offset
-    pop edi
-    pop eax
-    ret
-
 setup_paging_32:
     ; Clear page tables area (16KB) at 0x100000
     mov edi, 0x100000
@@ -218,49 +188,10 @@ long_mode_start:
     mov fs, ax
     mov gs, ax
     mov ss, ax
-    mov rsp, 0x1F0000 ; set as LONGMODE STACK
-
-    mov esi, TEST
-    call print_
+    mov rsp, PMM_STACK_ADDRESS ; set as LONGMODE STACK
 
     ; Jump to kernel
     jmp 0x8000
-
-; print_string_vga_64:
-;     push rax
-;     push rdi
-;     mov edi, [0x90200]        ; Load VGA offset (32-bit for simplicity)
-; .loop:
-;     lodsb
-;     cmp al, 0
-;     je .done
-;     mov byte [0xB8000 + rdi], al
-;     mov byte [0xB8000 + rdi + 1], 0x07
-;     add edi, 2
-;     jmp .loop
-; .done:
-;     mov [0x90200], edi        ; Save VGA offset
-;     pop rdi
-;     pop rax
-;     ret
-termLine: dd 0xb8000
-TEST: db "OK NOW!", 0
-print_:
-    mov ebx, [termLine]
-    .loop:
-        mov ax, 0x0f00
-        mov al, [esi]
-        cmp al, 0
-        je .end
-
-        mov [ebx], ax
-
-        add ebx, 2
-        inc esi
-        jmp .loop
-    .end:
-        add dword [termLine], 80*2
-        ret
 
 ; 32-bit GDT
 [BITS 16]
@@ -307,16 +238,6 @@ gdt64_descriptor:
     dw $ - gdt_64 - 1           ; Size
     dd gdt_64                   ; Address
 
-; Data section
-
-; vga_init_msg    db 'VGA offset initialized', 13, 10, 0
-; loading_msg     db 'Loading AronaOS bootloader ...', 13, 10, 0
-; kernel_loaded_msg db 'Kernel loaded successfully', 13, 10, 0
-; entering_pm_msg db 'Entering protected mode', 13, 10, 0
-; long_mode_transition_msg db 'Transitioning to long mode', 0
-; long_mode_msg   db 'In long mode', 0
-
-
-abc db "AronaOS Bootloader", 0
-
-times 512 - ($ - stage2Begin) db 0
+%include "boot/stage2DiskLoad.asm"
+db "E"
+times 511 - ($ - stage2Begin) db 0

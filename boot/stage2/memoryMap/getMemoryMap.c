@@ -1,5 +1,5 @@
 
-#include "preKernel/utils/utils.h"
+#include "../utils/utils.h"
 extern void print_str(const char *, ...);
 // brute force search table with magic
 void *scanBootTable(const char *magic) {

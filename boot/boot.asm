@@ -51,7 +51,6 @@ start:
     jne disk_error
 
     call getUpperMemoryMap
-
     ; Enter 32-bit protected mode
     call enter_protected_mode
 
@@ -73,8 +72,6 @@ print_string:
     pop ax
     ret
 
-
-
 disk_error:
     mov si, error_msg
     call print_string
@@ -84,8 +81,10 @@ disk_error:
 boot_drive      db 0
 error_msg       db "DRE", 13, 10, 0
 
+%include "boot/pm2rm.asm"
 %include "boot/getMemoryMap.asm"
 
+savedCr0: dd 0
 db "E"
 ; Boot signature
 times 510 - ($ - $$) db 0
@@ -100,6 +99,7 @@ enter_protected_mode:
     
     ; Enable protected mode
     mov eax, cr0
+    mov [savedCr0], eax
     or eax, 1
     mov cr0, eax
     
@@ -116,10 +116,13 @@ protected_mode_start:
     mov fs, ax
     mov gs, ax
     mov ss, ax
-    mov esp, 0x90000
+    ; use bios stack
+
+    call pm2rm
 
     jmp 0x8000
 
+setupLongMode:
     ; Set up paging for long mode
     call setup_paging_32
 

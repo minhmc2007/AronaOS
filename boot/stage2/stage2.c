@@ -1,7 +1,3 @@
-/*
- * kernel/kernel.c
- * 64-bit kernel with shell
- */
 #include "memoryMap/memoryMap.h"
 #include <stdalign.h>
 #include <stdint.h>
@@ -11,7 +7,7 @@
 #define CMD_BUFFER_SIZE 256
 
 static uint16_t *const VGA_BUFFER = (uint16_t *)0xB8000;
-static int cursor_row = 1;
+static int cursor_row = 0;
 static int cursor_col = 0;
 static uint8_t color = 0x0A; // Green on black
 

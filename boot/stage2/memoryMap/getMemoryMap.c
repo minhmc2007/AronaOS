@@ -10,7 +10,7 @@ void *scanBootTable(const char *magic) {
   char *offset = (char *)0x7c00; // we load the bootloader into 0x7c00, some
                                  // tables could be here
 
-  for (int i = 0; i < 1024; i++) { // search through 1024 bytes
+  for (int i = 0; i < 2048; i++) { // search through 1024 bytes
     if (offset[i] == magic[0]) {
       int j = 1;
       int notFound = 0;

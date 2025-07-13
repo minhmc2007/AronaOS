@@ -1,7 +1,10 @@
 [org 0x7C00]
 [bits 16]
-KERNEL_ADDRESS equ 0x7e00
+STAGE2_ADDRESS equ 0x7e00
+PMM_STACK_ADDRESS equ 0x1F0000
+
 start:
+    mov dword [RM_STACK_ADDRESS], esp ; save realmode stack 
     ; clear screen by resetting video mode
     mov ah, 0xf
     int 0x10
@@ -35,9 +38,9 @@ start:
     ; load at 0x7e00
     mov ax, 0
     mov es, ax
-    mov bx, KERNEL_ADDRESS
+    mov bx, STAGE2_ADDRESS
 
-    ; Load kernel from disk
+    ; Load stage2 from disk
     mov ah, 0x02
     mov al, 10        ; load 10 sector
     mov ch, 0         ; Cylinder 0
@@ -54,8 +57,8 @@ start:
     ; Enter 32-bit protected mode
     call enter_protected_mode
 
-    ; This code never executes because we jump to 32-bit code
-    jmp $
+RM_STACK_ADDRESS:
+    dd 0
 
 print_string:
     push ax
@@ -72,17 +75,18 @@ print_string:
     pop ax
     ret
 
+db "DRET"
+dd disk_error
 disk_error:
     mov si, error_msg
     call print_string
-    cli
-    hlt
+    ret
 
 boot_drive      db 0
 error_msg       db "DRE", 13, 10, 0
 
 %include "boot/pm2rm.asm"
-%include "boot/getMemoryMap.asm"
+
 
 savedCr0: dd 0
 db "E"
@@ -91,6 +95,8 @@ times 510 - ($ - $$) db 0
 dw 0xAA55
 
 stage2Begin:
+
+%include "boot/getMemoryMap.asm"
 
 enter_protected_mode:
     cli
@@ -116,12 +122,7 @@ protected_mode_start:
     mov fs, ax
     mov gs, ax
     mov ss, ax
-    ; use bios stack
-
-    mov si, abc
-    mov dword [PM2RM_CALL_ADDRESS], print_string
-    mov dword [PM2RM_RETURN_ADDRESS], 0x8000
-    jmp pm2rm
+    mov esp, PMM_STACK_ADDRESS
 
     jmp 0x8000
 
@@ -210,8 +211,7 @@ long_mode_start:
     mov fs, ax
     mov gs, ax
     mov ss, ax
-    mov rsp, 0x101000 ; 4KB for stack
-    mov rbp, rsp
+    mov rsp, 0x1F0000 ; set as LONGMODE STACK
 
     mov esi, TEST
     call print_

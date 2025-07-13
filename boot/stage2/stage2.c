@@ -216,6 +216,21 @@ void preKernelMain() {
 
   void *p = scanBootTable("TUMP");
   memoryMapPointer = p;
+
+  uint32_t *pm2rmAddr = scanBootTable("PM2RM");
+  void (*pm2rm)(uint32_t funcAddress) = (void *)*pm2rmAddr;
+
+  if (pm2rm == 0)
+    print_str("UUSUSUS\n");
+
+  printHex((uint32_t)pm2rm);
+
+  uint32_t *f = scanBootTable("DRET");
+
+  newline();
+  pm2rm(*f);
+  checkMemoryMap();
+
   for (;;)
     asm("hlt");
 }

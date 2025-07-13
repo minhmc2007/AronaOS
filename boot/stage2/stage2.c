@@ -1,7 +1,4 @@
-/*
- * kernel/kernel.c
- * 64-bit kernel with shell
- */
+#include "disk/disk.h"
 #include "memoryMap/memoryMap.h"
 #include <stdalign.h>
 #include <stdint.h>
@@ -127,74 +124,9 @@ char get_ascii(uint8_t scancode) {
   return 0;
 }
 
-// Shell functions
-void shell_execute(const char *cmd) {
-  if (custom_strcmp(cmd, "help") == 0) {
-    print_str("Available commands: help, about, echo, clear, checkmm\n");
-  } else if (custom_strcmp(cmd, "about") == 0) {
-    print_str("AronaOS 64-bit\nCreated by minhmc2007 and thisisaname1928\n");
-  } else if (custom_strncmp(cmd, "echo ", 5) == 0) {
-    print_str(cmd + 5);
-    print_char('\n');
-  } else if (custom_strcmp(cmd, "clear") == 0) {
-    clear_screen();
-  } else if (custom_strcmp(cmd, "checkmm") == 0)
-    checkMemoryMap();
-  else if (*cmd) {
-    print_str("Unknown command: ");
-    print_str(cmd);
-    print_str("\nType 'help' for commands\n");
-  }
-}
-
-void shell() {
-  char cmd_buffer[CMD_BUFFER_SIZE];
-  int cmd_index = 0;
-
-  print_str("AronaOS Shell\nType 'help' for commands\n");
-
-  while (1) {
-    print_str("\nAronaOS> ");
-    cmd_index = 0;
-    cmd_buffer[0] = '\0';
-
-    // Read command
-    while (1) {
-      uint8_t scancode = get_key();
-      if (!scancode)
-        continue;
-
-      // Handle special keys
-      if (scancode == 0x1C) { // Enter
-        print_char('\n');
-        break;
-      } else if (scancode == 0x0E) { // Backspace
-        if (cmd_index > 0) {
-          print_char('\b');
-          cmd_index--;
-        }
-        continue;
-      }
-
-      // Convert scancode to ASCII
-      char c = get_ascii(scancode);
-      if (c) {
-        print_char(c);
-        if (cmd_index < CMD_BUFFER_SIZE - 1) {
-          cmd_buffer[cmd_index++] = c;
-        }
-      }
-    }
-
-    // Execute command
-    cmd_buffer[cmd_index] = '\0';
-    shell_execute(cmd_buffer);
-  }
-}
-
 const char int2hex[16] = {'0', '1', '2', '3', '4', '5', '6', '7',
                           '8', '9', 'A', 'B', 'C', 'D', 'E', 'F'};
-void printHex(uint64_t v) {
+void printHex(uint32_t v) {
   char output[17];
   int c = 16;
 
@@ -219,7 +151,7 @@ void printHex(uint64_t v) {
   }
 }
 
-void printUint(uint64_t v) {
+void printUint(uint32_t v) {
   char output[20];
   int c = 19;
 
@@ -247,7 +179,8 @@ UpperMemoryMap *mm;
 TUMPPointer *memoryMapPointer;
 
 void checkMemoryMap() {
-  mm = (UpperMemoryMap *)memoryMapPointer->memoryMapPointer;
+  uint32_t tmp = (uint32_t)memoryMapPointer->memoryMapPointer;
+  mm = (UpperMemoryMap *)tmp;
   int l = memoryMapPointer->memoryMapLength;
   uint64_t totalSize = 0;
   print_str("Memory map has ");
@@ -278,16 +211,50 @@ void checkMemoryMap() {
   print_str(" MB\n");
 }
 
+void hlt() {
+  for (;;)
+    asm("hlt");
+}
+
 void preKernelMain() __attribute__((section(".text.entry")));
 void preKernelMain() {
-  clear_screen();
-  print_str("Hello from AronaOS 64-bit!\n");
+  print_str("Hello from Arona bootloader stage 2!\n");
 
   void *p = scanBootTable("TUMP");
   memoryMapPointer = p;
 
-  shell();
+  uint32_t *pm2rmAddr = scanBootTable("PM2RM");
+  void (*pm2rm)(uint32_t funcAddress) = (void *)*pm2rmAddr;
 
-  for (;;)
-    asm("hlt");
+  if (pm2rm == 0)
+    print_str("UUSUSUS\n");
+
+  printHex((uint32_t)pm2rm);
+
+  DLD *d = scanBootTable("DLD");
+
+  checkMemoryMap();
+  newline();
+  if (d->diskLoadData == 0) {
+    print_str("SUSSY");
+    hlt();
+  }
+
+  d->DAP.LBA = 0;
+  pm2rm(d->diskLoadData);
+
+  if (d->result) {
+    print_str("Read disk test passed!\n");
+
+    char *offset = (char *)d->outputAddress;
+
+    for (int i = 0; i < 2048; i++) { // perform a small test
+      if (offset[i] >= 48 && offset[i] <= 126) {
+        print_char(offset[i]);
+      }
+    }
+  } else
+    print_str("UUU ERROR WHILE READ DISK!\n");
+
+  hlt();
 }

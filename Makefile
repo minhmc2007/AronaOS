@@ -4,16 +4,16 @@ LD=ld
 AS=nasm
 OBJCOPY=objcopy
 
-CFLAGS = -fno-stack-protector -m64 -ffreestanding -nostdlib -fno-builtin -fno-pic -mcmodel=kernel -mno-red-zone -I ./
-LDFLAGS = -T preKernel/linker.ld -nostdlib
+CFLAGS = -fno-stack-protector -m32 -ffreestanding -nostdlib -fno-builtin -fno-pic -I ./
+LDFLAGS = -T boot/stage2/linker.ld -nostdlib -melf_i386
 asmPreKernelFlags = -f elf64
 
-preKernelFolder=preKernel
+preKernelFolder=boot/stage2
 bootEntryFolder=boot
 KernelFolder=kernel
 
 preKernelOutput=$(preKernelFolder)/preKernel.bin
-preKernelELF=$(preKernelFolder)/preKernel.elf
+preKernelELF=$(preKernelFolder)/stage2
 bootEntryOutput=$(bootEntryFolder)/boot.bin
 
 preKernelSRC=$(shell find $(preKernelFolder) -type f -name "*.c") $(shell find $(preKernelFolder) -type f -name "*.asm") $(shell find $(preKernelFolder) -type f -name "*.cpp")
@@ -45,7 +45,7 @@ $(preKernelOutput):  $(preKernelELF)
 	@echo "Convert $< to $@"
 	@$(OBJCOPY) -O binary $< $@
 	
-$(preKernelELF): $(preKernelOBJ) preKernel/linker.ld
+$(preKernelELF): $(preKernelOBJ) boot/stage2/linker.ld
 	@echo "Linking $@..."
 	@$(LD) -o $@ $(LDFLAGS) $(preKernelOBJ)
 

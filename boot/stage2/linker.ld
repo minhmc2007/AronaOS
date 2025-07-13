@@ -1,9 +1,9 @@
 /* 64-bit Linker Script */
 ENTRY(preKernelMain)
-OUTPUT_FORMAT(elf64-x86-64)
+OUTPUT_FORMAT(elf32-i386)
 
 SECTIONS {
-    . = 0x8000; /* free area as bios specifications */
+    . = 0x8000;
 
     .text : { 
         *(.text.entry)

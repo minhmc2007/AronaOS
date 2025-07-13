@@ -1,4 +1,4 @@
-bits 16
+[bits 16]
 MEMORY_MAP_BUFFER_ADDRESS equ 0xdc00 
 getUpperMemoryMap:
     pusha

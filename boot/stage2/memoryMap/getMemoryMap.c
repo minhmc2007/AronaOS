@@ -1,5 +1,5 @@
 
-#include "preKernel/utils/utils.h"
+#include "../utils/utils.h"
 extern void print_str(const char *, ...);
 // brute force search table with magic
 void *scanBootTable(const char *magic) {
@@ -10,7 +10,7 @@ void *scanBootTable(const char *magic) {
   char *offset = (char *)0x7c00; // we load the bootloader into 0x7c00, some
                                  // tables could be here
 
-  for (int i = 0; i < 1024; i++) { // search throught 1024 bytes
+  for (int i = 0; i < 2048; i++) { // search through 1024 bytes
     if (offset[i] == magic[0]) {
       int j = 1;
       int notFound = 0;

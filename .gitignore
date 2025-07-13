@@ -4,3 +4,4 @@ boot/boot.bin
 *.asm.preKernel.o
 preKernel/preKernel.bin
 preKernel/preKernel.elf
+tmp/

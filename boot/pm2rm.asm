@@ -85,9 +85,9 @@ GDT16:
     .END:
 
 PM2RM_CALL_ADDRESS:
-    dw 0
+    dd 0
 PM2RM_RETURN_ADDRESS:
-    dw 0
+    dd 0
 
 [bits 32]
 pm2rmHelper:

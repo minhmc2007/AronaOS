@@ -1,5 +1,6 @@
 #include "disk/disk.h"
 #include "memoryMap/memoryMap.h"
+#include "slabAllocator/slabAllocator.h"
 #include <stdalign.h>
 #include <stdint.h>
 
@@ -223,38 +224,53 @@ void preKernelMain() {
   void *p = scanBootTable("TUMP");
   memoryMapPointer = p;
 
-  uint32_t *pm2rmAddr = scanBootTable("PM2RM");
-  void (*pm2rm)(uint32_t funcAddress) = (void *)*pm2rmAddr;
+  // uint32_t *pm2rmAddr = scanBootTable("PM2RM");
+  // void (*pm2rm)(uint32_t funcAddress) = (void *)*pm2rmAddr;
 
-  if (pm2rm == 0)
-    print_str("UUSUSUS\n");
+  // if (pm2rm == 0)
+  //   print_str("UUSUSUS\n");
 
-  printHex((uint32_t)pm2rm);
+  // printHex((uint32_t)pm2rm);
 
-  DLD *d = scanBootTable("DLD");
+  // DLD *d = scanBootTable("DLD");
 
   checkMemoryMap();
   newline();
-  if (d->diskLoadData == 0) {
-    print_str("SUSSY");
-    hlt();
-  }
+  // if (d->diskLoadData == 0) {
+  //   print_str("SUSSY");
+  //   hlt();
+  // }
 
-  d->DAP.LBA = 0;
-  pm2rm(d->diskLoadData);
+  // d->DAP.LBA = 0;
+  // pm2rm(d->diskLoadData);
 
-  if (d->result) {
-    print_str("Read disk test passed!\n");
+  // if (d->result) {
+  //   print_str("Read disk test passed!\n");
 
-    char *offset = (char *)d->outputAddress;
+  //   char *offset = (char *)d->outputAddress;
 
-    for (int i = 0; i < 2048; i++) { // perform a small test
-      if (offset[i] >= 48 && offset[i] <= 126) {
-        print_char(offset[i]);
-      }
-    }
-  } else
-    print_str("UUU ERROR WHILE READ DISK!\n");
+  //   for (int i = 0; i < 2048; i++) { // perform a small test
+  //     if (offset[i] >= 48 && offset[i] <= 126) {
+  //       print_char(offset[i]);
+  //     }
+  //   }
+  // } else
+  //   print_str("UUU ERROR WHILE READ DISK!\n");
+
+  initAllocator((void *)0x200000);
+  uint32_t *s = smalloc(16);
+  uint32_t *a = smalloc(1);
+  sfree(a, 1);
+  a = smalloc(1);
+  uint32_t *b = smalloc(8);
+  newline();
+  *s = 1000;
+  printUint(*s);
+  newline();
+  sfree(s, 16);
+  sfree(b, 8);
+
+  printHex((uint32_t)s);
 
   hlt();
 }

@@ -1,6 +1,6 @@
-[org 0x7C00]
-[bits 16]
-STAGE2_ADDRESS equ 0x7e00
+org 0x7e00
+bits 16
+STAGE2_ADDRESS equ 0x8000
 PMM_STACK_ADDRESS equ 0x1F0000
 
 start:
@@ -13,35 +13,47 @@ start:
 
     ; Save boot drive
     mov [boot_drive], dl
-    ; load at 0x7e00
+
+    mov si, TEST
+    call print_string
+
+    ; load at 0x8000
     mov ax, 0
     mov es, ax
     mov bx, STAGE2_ADDRESS
 
     ; Load stage2 from disk
     mov ah, 0x02
-    mov al, 20        ; load 20 sector
+    mov al, 12        ; load 20 sector
     mov ch, 0         ; Cylinder 0
-    mov cl, 2         ; Sector 2 (first sector after bootloader)
+    mov cl, 4         ; Sector 4 (second sector after FSInfo)
     mov dh, 0         ; Head 0
     mov dl, byte [boot_drive]
     int 0x13
     jc disk_error
 
-    cmp al, 20         ; Check if we read 20 sectors
+    cmp al, 12         ; Check if we read 20 sectors
     jne disk_error
 
     mov al, [boot_drive]
     mov [DLD.bootDrive], al
 
+    mov si, tt2
+    call print_string
+
     call getUpperMemoryMap
+   
     ; Enter 32-bit protected mode
     call enter_protected_mode
+
+
+TEST: db "starting bootloader", 13, 10, 0
 
 RM_STACK_ADDRESS:
     dd 0
 
 print_string:
+    pusha
     push ax
     push si
     mov ah, 0x0e
@@ -52,6 +64,7 @@ print_string:
     int 0x10
     jmp .loop
 .done:
+    popa
     pop si
     pop ax
     ret
@@ -70,28 +83,17 @@ error_msg       db "DRE", 13, 10, 0
 savedCr0: dd 0
 db "E"
 ; Boot signature
-times 440 - ($ - $$) db 0
-
-uniqueDiskID: dd 0
-reserved: dw 0
-partitions:
-.partition1:
-    dq 0
-    dq 0
-.partition2:
-    dq 0
-    dq 0
-.partition3:
-    dq 0
-    dq 0
-.partition4:
-    dq 0
-    dq 0
-dw 0xAA55
+times 512 - ($ - $$) db 0
 
 stage2Begin:
-%include "boot/getMemoryMap.asm"
 
+tt2: db "LUL",13,10,0
+tt:
+    mov si, TEST
+    call print_string
+    ret
+
+%include "boot/getMemoryMap.asm"
 [bits 16]
 enter_protected_mode:
     cli
@@ -239,5 +241,6 @@ gdt64_descriptor:
     dd gdt_64                   ; Address
 
 %include "boot/stage2DiskLoad.asm"
-db "E"
+
 times 511 - ($ - stage2Begin) db 0
+db "E"

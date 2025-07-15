@@ -79,10 +79,8 @@ void *smalloc(uint32_t size) {
 }
 
 void sfree(void *address, uint32_t size) {
-  if (size >= 4)
-    size /= SMALLEST_SLAB;
-  else
-    size = 1;
+  while ((size % SMALLEST_SLAB) != 0) // inc til get a suitable size
+    size++;
 
   uint32_t slabT = ((uint32_t)address - (uint32_t)slabs) / 4;
 

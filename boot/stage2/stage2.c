@@ -11,7 +11,7 @@
 static uint16_t *const VGA_BUFFER = (uint16_t *)0xB8000;
 static int cursor_row = 1;
 static int cursor_col = 0;
-static uint8_t color = 0x0A; // Green on black
+static uint8_t color = 0xf5; // purple on white
 
 void checkMemoryMap();
 
@@ -219,6 +219,7 @@ void hlt() {
 
 void preKernelMain() __attribute__((section(".text.entry")));
 void preKernelMain() {
+  clear_screen();
   print_str("Hello from Arona bootloader stage 2!\n");
 
   void *p = scanBootTable("TUMP");

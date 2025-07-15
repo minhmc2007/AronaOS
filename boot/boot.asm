@@ -20,7 +20,7 @@ start:
 
     ; Load stage2 from disk
     mov ah, 0x02
-    mov al, 10        ; load 10 sector
+    mov al, 20        ; load 20 sector
     mov ch, 0         ; Cylinder 0
     mov cl, 2         ; Sector 2 (first sector after bootloader)
     mov dh, 0         ; Head 0
@@ -28,7 +28,7 @@ start:
     int 0x13
     jc disk_error
 
-    cmp al, 10         ; Check if we read 10 sectors
+    cmp al, 20         ; Check if we read 20 sectors
     jne disk_error
 
     mov al, [boot_drive]
@@ -119,7 +119,7 @@ protected_mode_start:
     mov ss, ax
     mov esp, PMM_STACK_ADDRESS
 
-    jmp 0x8000
+    jmp 0x8400
 
 setupLongMode:
     ; Set up paging for long mode

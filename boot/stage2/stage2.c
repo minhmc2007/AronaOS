@@ -220,6 +220,7 @@ void hlt() {
 void preKernelMain() __attribute__((section(".text.entry")));
 void preKernelMain() {
   clear_screen();
+
   print_str("Hello from Arona bootloader stage 2!\n");
 
   void *p = scanBootTable("TUMP");
@@ -235,12 +236,12 @@ void preKernelMain() {
 
   // DLD *d = scanBootTable("DLD");
 
-  checkMemoryMap();
-  newline();
-  // if (d->diskLoadData == 0) {
-  //   print_str("SUSSY");
-  //   hlt();
-  // }
+  // checkMemoryMap();
+  // newline();
+  //  if (d->diskLoadData == 0) {
+  //    print_str("SUSSY");
+  //    hlt();
+  //  }
 
   // d->DAP.LBA = 0;
   // pm2rm(d->diskLoadData);
@@ -259,17 +260,17 @@ void preKernelMain() {
   //   print_str("UUU ERROR WHILE READ DISK!\n");
 
   initAllocator((void *)0x200000);
-  uint32_t *s = smalloc(16);
+  uint32_t *s = smalloc(8);
   uint32_t *a = smalloc(1);
   sfree(a, 1);
   a = smalloc(1);
-  uint32_t *b = smalloc(8);
+  uint32_t *b = smalloc(4);
   newline();
   *s = 1000;
   printUint(*s);
   newline();
-  sfree(s, 16);
-  sfree(b, 8);
+  sfree(s, 8);
+  sfree(b, 4);
 
   printHex((uint32_t)s);
 

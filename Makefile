@@ -34,7 +34,7 @@ $(imgOutput): $(bootEntryOutput) $(preKernelOutput)
 	@dd if=/dev/zero of=$(imgOutput) bs=512 count=2880
 	@dd if=$(bootEntryOutput) of=$(imgOutput) conv=notrunc
 
-	@dd if=$(preKernelOutput) of=$(imgOutput) bs=512 seek=2 conv=notrunc
+	@dd if=$(preKernelOutput) of=$(imgOutput) bs=512 seek=4 conv=notrunc
 	@echo "Created disk img!"
 
 $(bootEntryOutput): $(bootEntrySRC)

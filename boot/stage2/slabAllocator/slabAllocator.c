@@ -82,6 +82,7 @@ void sfree(void *address, uint32_t size) {
   while ((size % SMALLEST_SLAB) != 0) // inc til get a suitable size
     size++;
 
+  size /= 4;
   uint32_t slabT = ((uint32_t)address - (uint32_t)slabs) / 4;
 
   for (uint32_t i = 0; i < size; i++) {

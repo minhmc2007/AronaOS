@@ -24,7 +24,7 @@ start:
 
     ; Load stage2 from disk
     mov ah, 0x02
-    mov al, 12        ; load 20 sector
+    mov al, 12        ; load 12 sector
     mov ch, 0         ; Cylinder 0
     mov cl, 4         ; Sector 4 (second sector after FSInfo)
     mov dh, 0         ; Head 0
@@ -32,7 +32,7 @@ start:
     int 0x13
     jc disk_error
 
-    cmp al, 12         ; Check if we read 20 sectors
+    cmp al, 12         ; Check if we read 12 sectors
     jne disk_error
 
     mov al, [boot_drive]

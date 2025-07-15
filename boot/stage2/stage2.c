@@ -261,7 +261,5 @@ void preKernelMain() {
 
   initAllocator((void *)0x200000);
 
-  checkMemoryMap();
-
   hlt();
 }

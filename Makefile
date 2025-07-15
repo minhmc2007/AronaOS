@@ -20,6 +20,8 @@ preKernelSRC=$(shell find $(preKernelFolder) -type f -name "*.c") $(shell find $
 preKernelOBJ=$(patsubst %, %.preKernel.o, $(preKernelSRC))
 
 bootEntrySRC=$(shell find boot -type f -name "*.asm")
+IMG_FOLDERS=$(shell find ./img/ -type d -maxdepth 1)
+IMG_FILES=$(shell find ./img/ -type f -maxdepth 1)
 
 imgOutput=aronaos.img
 

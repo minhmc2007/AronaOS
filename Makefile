@@ -39,7 +39,7 @@ $(imgOutput): $(bootEntryOutput) $(preKernelOutput) buildTools/buildTools boot/t
 	@dd if=$(preKernelOutput) of=$(imgOutput) bs=512 seek=5 conv=notrunc
 	@echo "Created disk img!"
 	@echo "Install tinymbr"
-	@buildTools/buildTools $(imgOutput) boot/tinymbr.bin
+	@buildTools/buildTools install-bios $(imgOutput) boot/tinymbr.bin
 
 boot/tinymbr.bin: boot/tinymbr.asm
 	@echo "[AS] boot/tinymbr.asm -> $@"

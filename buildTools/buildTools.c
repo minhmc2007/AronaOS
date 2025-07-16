@@ -14,15 +14,15 @@ int main(int argc, char **argv) {
   if (argc < 2)
     return 0;
 
-  if (strcmp(argv[1], "install-bios")) {
-    if (argc < 3)
+  if (strcmp(argv[1], "install-bios") == 0) {
+    if (argc < 4)
       return -1;
 
-    FILE *f = fopen(argv[1], "r+");
+    FILE *f = fopen(argv[2], "r+");
     if (f == NULL)
       return -1;
 
-    FILE *mbr = fopen(argv[2], "r");
+    FILE *mbr = fopen(argv[3], "r");
     if (f == NULL)
       return -1;
 

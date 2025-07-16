@@ -1,4 +1,4 @@
-DISK_READ_OUTPUT_ADDRESS equ 0xa000
+DISK_READ_OUTPUT_ADDRESS equ 0xd000
 
 db "DLD" ; "DLD" table signature
 DLD:
@@ -9,10 +9,15 @@ DLD:
     db 0
 
 .diskAddressPacket:
+.size:
     db 16 ; size
+.reserved:
     db 0
-    dw 4 ; read 4 sector per call
+.sector:
+    dw 1 ; read 1 sector per call
+.offset:
     dw DISK_READ_OUTPUT_ADDRESS 
+.segment
     dw 0 ; segment
     .LBA:
         dq 0

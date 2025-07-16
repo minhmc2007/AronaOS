@@ -126,6 +126,8 @@ int openFolder(const char *INP);
 int listDir();
 void readShortDirName();
 int checkAttrInfo(uint8_t attr, uint8_t attrType);
+void backup();
+void restore();
 
 extern FAT32Dir resultDir;
 extern char shortNameRes[13];

@@ -30,7 +30,7 @@ rm:
     lidt [IDTR16]
     sti
 
-    mov esp, dword [RM_STACK_ADDRESS]
+    mov sp, word [RM_STACK_ADDRESS]
 
 .pm2rmCaller:
     call [PM2RM_CALL_ADDRESS]

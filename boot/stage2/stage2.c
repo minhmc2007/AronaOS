@@ -1,4 +1,5 @@
 #include "disk/disk.h"
+#include "fs/fat32/fat.h"
 #include "memoryMap/memoryMap.h"
 #include "slabAllocator/slabAllocator.h"
 #include <stdalign.h>
@@ -216,6 +217,17 @@ void hlt() {
   for (;;)
     asm("hlt");
 }
+DLD *d;
+void (*pm2rm)(uint32_t funcAddress);
+
+int readDisk(uint64_t sector) {
+  printUint(sector);
+  newline();
+  d->DAP.LBA = sector;
+  pm2rm(d->diskLoadData); // call
+
+  return 1;
+}
 
 void preKernelMain() __attribute__((section(".text.entry")));
 void preKernelMain() {
@@ -227,14 +239,14 @@ void preKernelMain() {
   memoryMapPointer = p;
 
   uint32_t *pm2rmAddr = scanBootTable("PM2RM");
-  void (*pm2rm)(uint32_t funcAddress) = (void *)*pm2rmAddr;
+  pm2rm = (void *)*pm2rmAddr;
 
   if (pm2rm == 0)
     print_str("UUSUSUS\n");
 
   printHex((uint32_t)pm2rm);
 
-  DLD *d = scanBootTable("DLD");
+  d = scanBootTable("DLD");
 
   checkMemoryMap();
   newline();
@@ -245,21 +257,29 @@ void preKernelMain() {
 
   d->DAP.LBA = 0;
   pm2rm(d->diskLoadData);
-
-  if (d->result) {
-    print_str("Read disk test passed!\n");
-
-    char *offset = (char *)d->outputAddress;
-
-    for (int i = 0; i < 2048; i++) { // perform a small test
-      if (offset[i] >= 48 && offset[i] <= 126) {
-        print_char(offset[i]);
-      }
-    }
-  } else
-    print_str("UUU ERROR WHILE READ DISK!\n");
+  pm2rm(d->diskLoadData);
 
   initAllocator((void *)0x200000);
+  char *buffer = (char *)d->outputAddress;
+  int s = readDisk(187);
+
+  s = initSimpleFat32(smalloc, sfree, buffer, readDisk, 512);
+  // readDisk(512);
+  if (s != 1) {
+    print_str("FAT32 driver init failed!\n");
+    printUint(s);
+  }
+
+  backup();
+  while (listDir() != 0) {
+    readShortDirName();
+    print_str(shortNameRes);
+    newline();
+  }
+  restore();
+  readFile("TEST.TXT", (char *)0x300000);
+  char *newBuf = (char *)0x300000;
+  print_str(newBuf);
 
   hlt();
 }

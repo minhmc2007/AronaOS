@@ -1,5 +1,5 @@
 [bits 16]
-MEMORY_MAP_BUFFER_ADDRESS equ 0xdc00 
+MEMORY_MAP_BUFFER_ADDRESS equ 0xd200 
 getUpperMemoryMap:
     pusha
     mov ebx, 0     ; table counter 

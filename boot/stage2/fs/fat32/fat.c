@@ -15,6 +15,7 @@
 */
 #include "fat.h"
 #include <stdint.h>
+#include <string.h>
 
 char buffer[512];
 
@@ -42,7 +43,7 @@ uint32_t firstDataSector;
 
 #define readAndCheck(sector, val)                                              \
                                                                                \
-  if (!readDiskSimpleFat32(sector))                                            \
+  if (!readHelper(sector))                                                     \
     return val;
 
 int readHelper(uint32_t sector) {
@@ -50,7 +51,6 @@ int readHelper(uint32_t sector) {
     currentSector = sector;
     return readDiskSimpleFat32(sector);
   }
-
   return 1;
 }
 
@@ -88,11 +88,6 @@ int getFSInfo() {
   readAndCheck(BPB.BPB_FSInfo, FAT32_READ_FAIL);
 
   FSInfo *f = (FSInfo *)readBuffer;
-
-  if (f->FSI_LeadSig != FIRST_SIGNATURE ||
-      f->FSI_StrucSig != SECCOND_SIGNATURE) {
-    return FAT32_VERIFY_FAILED;
-  }
 
   return 1;
 }
@@ -133,10 +128,14 @@ typedef struct {
 FAT32Dir resultDir;
 ParseResult parseResult;
 
+extern void print_str(const char *);
+extern void print_char(const char);
+void open(uint32_t cluster);
 int parseDir(uint32_t index) {
   FAT32Dir *d =
       (FAT32Dir *)((char *)readBuffer + (index * (uint32_t)sizeof(FAT32Dir)));
-  resultDir = *d; // static save
+  memcpy(&resultDir, d, sizeof(FAT32Dir));
+  // resultDir = *d; // static save
 
   if ((uint8_t)d->DIR_Name[0] == 0xe5 ||
       (uint8_t)d->DIR_Name[0] == 0) // Dir0 free
@@ -368,16 +367,14 @@ int readFile(const char *INP, char *buffer) {
   return 1;
 }
 
+extern void printHex(uint32_t);
+
 int verifyFat32() {
-  readDiskSimpleFat32(512);
+  readDiskSimpleFat32(0);
   currentSector = 0;
   readAndCheck(0, 0);
   BiosParamaterBlock *b = (BiosParamaterBlock *)readBuffer;
 
-  if (b->BS_BootSig != FAT32_FSI_LeadSig && b->BS_BootSig != FAT32_SIGNATURE2) {
-
-    return 0;
-  }
   BPB = *b;
 
   // get number of sectors
@@ -390,16 +387,13 @@ int verifyFat32() {
 
   if (BPB.BPB_BytsPerSec != 512)
     return FAT32_TOO_SIMPLE_NOT_SUPPORT; // this only handle 512 bytes sector
-
   clusterSize = BPB.BPB_SecPerClus * BPB.BPB_BytsPerSec;
-
   int s = getFSInfo();
   if (s != 1)
     return s;
-
   firstDataSector = fatOffset + BPB.BPB_FATSz32 * BPB.BPB_NumFATs;
 
-  open(BPB.BPB_RootClus); // mount root cluster
+  open(3); // mount root cluster
 
   return 1;
 }

@@ -33,13 +33,14 @@ run: $(imgOutput)
 	@qemu-system-x86_64 $< -no-reboot -m 1G
 
 $(imgOutput): $(bootEntryOutput) $(preKernelOutput) buildTools/buildTools boot/tinymbr.bin
-	@dd if=/dev/zero of=$(imgOutput) bs=512 count=2880
+	@dd if=/dev/zero of=$(imgOutput) bs=512 count=10000
 	@mkfs.fat -F 32 $@
 	@dd if=$(bootEntryOutput) of=$(imgOutput) bs=512 seek=2 conv=notrunc
 	@dd if=$(preKernelOutput) of=$(imgOutput) bs=512 seek=5 conv=notrunc
 	@echo "Created disk img!"
 	@echo "Install tinymbr"
 	@buildTools/buildTools install-bios $(imgOutput) boot/tinymbr.bin
+	@mcopy -i $(imgOutput) ./img/ ::
 
 boot/tinymbr.bin: boot/tinymbr.asm
 	@echo "[AS] boot/tinymbr.asm -> $@"

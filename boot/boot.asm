@@ -72,6 +72,7 @@ disk_error:
     hlt
     jmp $
 
+%include "boot/pm2rm.asm"
 %include "boot/loadFile.asm"
 
 boot_drive      db 0

@@ -81,7 +81,6 @@ initFAT32FS:
 
 ; eax = index
 ; eax = return code
-; need to call loadCluster.checkCurrent after call
 readFAT:
     pushad
 
@@ -101,6 +100,8 @@ readFAT:
 
     mov eax, dword [DISK_READ_OUTPUT_ADDRESS + ebx]
     mov dword [.returnValue], eax
+
+    call loadCluster.checkCurrent
 
     popad
     mov eax, dword [.returnValue]
@@ -228,7 +229,7 @@ loadCluster:
     pushad
 
     ; check if LoadSec.LBA = .currentLBA
-    mov eax, dword [LoadSec.LBA]
+    mov eax, dword [loadSec.LBA]
     mov ebx, dword [.currentLBA]
     cmp eax, ebx
     je .endCheck

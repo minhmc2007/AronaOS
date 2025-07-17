@@ -4,15 +4,14 @@ STAGE2_ADDRESS equ 0x8000
 PMM_STACK_ADDRESS equ 0x1F0000
 
 start:
+    ; Save boot drive
+    mov [boot_drive], dl
     mov word [RM_STACK_ADDRESS], sp ; save realmode stack 
     ; clear screen by resetting video mode
     mov ah, 0xf
     int 0x10
     mov ah, 0x00
     int 0x10
-
-    ; Save boot drive
-    mov [boot_drive], dl
 
     mov si, TEST
     call print_string
@@ -38,7 +37,8 @@ start:
     mov al, [boot_drive]
     mov [DLD.bootDrive], al
 
-    call getUpperMemoryMap
+    ; we will load the memory map later 
+    ; call getUpperMemoryMap
    
     ; Enter 32-bit protected mode
     call enter_protected_mode
@@ -234,6 +234,6 @@ gdt64_descriptor:
     dw $ - gdt_64 - 1           ; Size
     dd gdt_64                   ; Address
 
-%include "boot/stage2DiskLoad.asm"
+%include "boot/diskLoad.asm"
 
 db "E"

@@ -122,6 +122,7 @@
 ; pm2rm but modified...
 bits 32
 pm2rmf:
+    pushfd
     pushad
     cli
 
@@ -136,6 +137,7 @@ bits 16
     mov fs, ax
     mov gs, ax
     mov ss, ax
+    
 .turnOffPE:
     mov eax, cr0
     and eax, 0xfffffffe
@@ -183,6 +185,7 @@ bits 32
     mov ss, ax
 
     popad
+    popfd
 
     ret ; return
 
@@ -221,6 +224,6 @@ GDT16:
         dw 0          ; low base
         db 0          ; mid base
         db 0b10010010 ; access bit
-        db 0b11000000 ; flags + high limit
+        db 0b00000000 ; flags + high limit
         db 0          ; high base
     .END:

@@ -45,11 +45,23 @@ initFAT32FS:
     mul bx ; FAT32BPB.BPB_SecPerClus * FAT32BPB.BPB_BytsPerSec
     mov dword [localVar.clusterSize], eax
 
-    ; some test
-    mov dword [PM2RMF_CALL_ADDRESS], TEST_F
-    call pm2rmf
-    
-    mov word [0xb8000], 0x0a61
+    ; calculate BPB_BytsPerSec / 512
+    mov ebx, 512
+    mov eax, 0
+    mov ax, [FAT32BPB.BPB_BytsPerSec]
+    div ebx
+    mov dword [localVar.FAT32BD512], eax
+
+    ; test
+
+    mov eax, 0
+    mov eax, 4
+    mov ebx, 0
+    call loadCluster
+
+    mov al, byte [DISK_READ_OUTPUT_ADDRESS]
+    mov ah, 0xfa
+    mov word [0xb8000], ax 
 
     jmp $
 
@@ -61,6 +73,54 @@ loadDir:
 
     popad
     ret
+
+; set eax as cluster, ebx as index
+; -> readSector(firstDataSec + (cluster - 2) * secPerClus + index)
+loadCluster:
+    pushad
+    mov ecx, 2
+    sub eax, ecx ; eax -= 2
+
+    mov ecx, 0
+    mov cl, byte [FAT32BPB.BPB_SecPerClus]
+    mul cl ; eax *= cx (cluster * BPB_SecPerClus)
+
+    add eax, dword [localVar.firstDataSec] ; eax += localVar.firstDataSec
+    
+    add eax, ebx ; eax += index
+    
+    mov edx, eax
+    call loadSec
+
+    popad
+    ret
+
+; set edx as sector
+loadSec:
+    pushad
+    mov dword [.LBA], edx
+
+    ; pass number of 512 bytes sectors need to read to DiskLoad.asm
+    mov ax, word [localVar.FAT32BD512]
+    mov word [DLD.sector], ax ; dont need to mind about type
+    
+    ; load that same value to cx
+    mov cx, word [localVar.FAT32BD512] 
+
+    mov eax, 0
+    ; calculate sector offset
+    mov eax, dword [.LBA]
+    mul cx ; eax = edx; eax(sector offset ) *= cx
+    
+    mov dword [DLD.LBA], eax ; DLD.LBA = edx = sector to read
+
+    mov dword [PM2RMF_CALL_ADDRESS], diskLoadData
+    call pm2rmf 
+    
+    popad
+    ret
+.LBA:
+    dd 0
 
 currentDir:
 .name:
@@ -81,6 +141,8 @@ localVar:
 .firstDataSec:
     dd 0
 .clusterSize:
+    dd 0
+.FAT32BD512: ; FAT32 BytsPerSec / 512
     dd 0
 
 ; only need some fields, this to store them

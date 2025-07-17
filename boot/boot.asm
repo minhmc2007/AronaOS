@@ -7,6 +7,11 @@ start:
     ; Save boot drive
     mov [boot_drive], dl
     mov word [RM_STACK_ADDRESS], sp ; save realmode stack 
+    ; set color
+    mov ah, 0xb
+    mov bh, 0x0
+    mov bl, 0xf5
+    int 0x10
     ; clear screen by resetting video mode
     mov ah, 0xf
     int 0x10
@@ -103,6 +108,8 @@ enter_protected_mode:
     ; Far jump to flush prefetch queue and enter protected mode
     jmp CODE_SEG_32:protected_mode_start
 
+%include "boot/print.asm"
+%include "boot/string.asm"
 ; 32-bit protected mode code
 [BITS 32]
 protected_mode_start:
@@ -114,8 +121,30 @@ protected_mode_start:
     mov gs, ax
     mov ss, ax
 
+    mov dword [println.dest], 0xb8000
+    mov esi, initMsg
+    call println
+
     call initFAT32FS
+
+    ; search for BIN
+    mov eax, bootFolder
+    call findDir
+
+    cmp dword [findDir.result], 1
+    je .found
+
     jmp $
+
+    .found:
+        mov esi, foundMsg
+        call println
+    jmp $
+
+initMsg: db "init fat32 simple driver!", 0
+bootFolder: db "BOOT", 0
+bootstrap: db "BS", 0
+foundMsg: db "found BOOT Folder!", 0
 
 setupLongMode:
     ; Set up paging for long mode

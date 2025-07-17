@@ -65,20 +65,8 @@ initFAT32FS:
     mov eax, [FAT32BPB.BPB_RootClus]
     mov ebx, 0
     call loadCluster
-    call loadDir
-    call loadDir
-    call loadDir
 
-    mov eax, 2
-    call readFAT
-    jmp $
-
-    mov al, byte [currentDir.ext + 1]
-    mov ah, 0x1a
-    mov word [0xb8000], ax 
-
-    jmp $
-
+    ret
 ; eax = index
 ; eax = return code
 readFAT:
@@ -105,10 +93,52 @@ readFAT:
 
     popad
     mov eax, dword [.returnValue]
+    and eax, 0x0fffffff ; remove last 4 bits
     ret
 .returnValue:
     dd 0
 .FAT32:
+    dd 0
+
+; eax = name
+; result = 0 -> not found
+findDir:
+    pusha
+    mov ecx, 0 ; use ecx as counter
+    mov dword [loadDir.currentIndex], 0
+    .loop:
+        call loadDir
+        inc ecx
+
+        cmp dword [loadDir.result], 0
+        je .end
+
+        ;check if DIR_NAME[0] == 0xe5
+        mov bl, byte [currentDir.name]
+        cmp bl, 0xe5
+        je .loop ; ignore it
+
+        mov esi, currentDir.name
+        call println
+
+        ; cmp if equal
+        mov ebx, currentDir.name
+        call astrcmp
+        cmp dword [astrcmp.result], 1
+        je .found
+
+        ; cmp with Dir per sec
+        cmp ecx, dword [localVar.DirPerSec]
+        jne .loop
+    .end:
+        mov dword [.result], 0
+        popa
+        ret
+    .found
+        mov dword [.result], 1
+        popa
+        ret
+.result:
     dd 0
 
 ; if result = 0 -> no more dir, else result = 1
@@ -206,6 +236,7 @@ loadDir:
 ; -> readSector(firstDataSec + (cluster - 2) * secPerClus + index)
 loadCluster:
     pushad
+    mov dword [.currentClus], eax
     mov ecx, 2
     sub eax, ecx ; eax -= 2
 
@@ -224,6 +255,8 @@ loadCluster:
     popad
     ret
 .currentLBA:
+    dd 0
+.currentClus:
     dd 0
 .checkCurrent:
     pushad

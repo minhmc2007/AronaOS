@@ -14,6 +14,7 @@
    limitations under the License.
 */
 #include "fat.h"
+#include "../../utils/utils.h"
 #include <stdint.h>
 #include <string.h>
 
@@ -45,19 +46,22 @@ uint32_t firstDataSector;
                                                                                \
   if (!readHelper(sector))                                                     \
     return val;
-
+extern void print_str(const char *);
+extern void print_char(const char);
 int readHelper(uint32_t sector) {
+
   if (currentSector != sector) {
     currentSector = sector;
-    return readDiskSimpleFat32(sector);
+    readDiskSimpleFat32(sector);
   }
+
   return 1;
 }
 
 uint32_t currentCluster = 0;
 int readCluster(uint32_t index) {
-  readAndCheck(firstDataSector + BPB.BPB_SecPerClus * (index - 2), -1);
   currentCluster = index;
+  readAndCheck(firstDataSector + BPB.BPB_SecPerClus * (index - 2), 1);
   return 1;
 }
 
@@ -96,22 +100,6 @@ int checkAttrInfo(uint8_t attr, uint8_t attrType) {
   return (attr & attrType) == attrType;
 }
 
-int parseDirEntry(uint32_t cluster) {
-  readCluster(cluster);
-
-  FAT32Dir *d = (FAT32Dir *)readBuffer;
-  if (d->DIR_Name[0] == 0) {
-    return -1;
-  }
-
-  if ((uint8_t)d->DIR_Name[0] == 0xe5) {
-    if (checkAttrInfo(d->DIR_Attr, LONG_FILE_NAME_ATTRIBUTE)) {
-    }
-  }
-
-  return 1;
-}
-
 #define CHECK_RESULT(retVal)                                                   \
   if (retVal != 1)                                                             \
     return retVal;
@@ -128,13 +116,13 @@ typedef struct {
 FAT32Dir resultDir;
 ParseResult parseResult;
 
-extern void print_str(const char *);
-extern void print_char(const char);
 void open(uint32_t cluster);
 int parseDir(uint32_t index) {
   FAT32Dir *d =
       (FAT32Dir *)((char *)readBuffer + (index * (uint32_t)sizeof(FAT32Dir)));
-  memcpy(&resultDir, d, sizeof(FAT32Dir));
+  memcpy(&resultDir, (char *)((char *)readBuffer + index * 32),
+         sizeof(FAT32Dir));
+
   // resultDir = *d; // static save
 
   if ((uint8_t)d->DIR_Name[0] == 0xe5 ||
@@ -172,7 +160,11 @@ if return 0 mean no more entries
 if return 1 mean there are some
 should backup opening cluster per call
 */
+
+extern void printUint(uint32_t);
 int listDir() {
+  if (currentIndex == 0)
+    readCluster(currentCluster);
   int s = parseDir(currentIndex);
 
   if (s == FAT32_DIRECTORY_FREE) {
@@ -393,7 +385,7 @@ int verifyFat32() {
     return s;
   firstDataSector = fatOffset + BPB.BPB_FATSz32 * BPB.BPB_NumFATs;
 
-  open(3); // mount root cluster
+  open(BPB.BPB_RootClus); // mount root cluster
 
   return 1;
 }

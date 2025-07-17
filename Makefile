@@ -4,7 +4,7 @@ LD=ld
 AS=nasm
 OBJCOPY=objcopy
 
-CFLAGS = -fno-stack-protector -m32 -ffreestanding -nostdlib -fno-builtin -fno-pic -I ./
+CFLAGS = -O0 -fno-stack-protector -m32 -ffreestanding -nostdlib -fno-builtin -fno-pic -I ./
 LDFLAGS = -T boot/stage2/linker.ld -nostdlib -melf_i386
 asmPreKernelFlags = -f elf64
 
@@ -32,11 +32,10 @@ run: $(imgOutput)
 	@echo "Running [$<]"
 	@qemu-system-x86_64 $< -no-reboot -m 1G
 
-$(imgOutput): $(bootEntryOutput) $(preKernelOutput) buildTools/buildTools boot/tinymbr.bin
+$(imgOutput): $(bootEntryOutput) buildTools/buildTools boot/tinymbr.bin
 	@dd if=/dev/zero of=$(imgOutput) bs=512 count=10000
 	@mkfs.fat -F 32 $@
 	@dd if=$(bootEntryOutput) of=$(imgOutput) bs=512 seek=2 conv=notrunc
-	@dd if=$(preKernelOutput) of=$(imgOutput) bs=512 seek=5 conv=notrunc
 	@echo "Created disk img!"
 	@echo "Install tinymbr"
 	@buildTools/buildTools install-bios $(imgOutput) boot/tinymbr.bin

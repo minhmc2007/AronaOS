@@ -223,12 +223,22 @@ void (*pm2rm)(uint32_t funcAddress);
 int readDisk(uint64_t sector) {
   printUint(sector);
   newline();
+  d->DAP.sectors = 1;
+  d->DAP.size = 16;
   d->DAP.LBA = sector;
   pm2rm(d->diskLoadData); // call
 
+  // if (d->result != 1)
+  //   print_str(" failed \n");
+
   return 1;
 }
+int wrap(int a) {
+  readDisk(0);
+  return 7;
+}
 
+extern char end;
 void preKernelMain() __attribute__((section(".text.entry")));
 void preKernelMain() {
   clear_screen();
@@ -255,31 +265,39 @@ void preKernelMain() {
     hlt();
   }
 
+  char *buffer = (char *)d->outputAddress;
+
   d->DAP.LBA = 0;
-  pm2rm(d->diskLoadData);
-  pm2rm(d->diskLoadData);
+  readDisk(187);
 
   initAllocator((void *)0x200000);
-  char *buffer = (char *)d->outputAddress;
-  int s = readDisk(187);
+  // int k = wrap(1);
+
+  int s = 1;
 
   s = initSimpleFat32(smalloc, sfree, buffer, readDisk, 512);
-  // readDisk(512);
   if (s != 1) {
     print_str("FAT32 driver init failed!\n");
     printUint(s);
   }
 
-  backup();
-  while (listDir() != 0) {
-    readShortDirName();
-    print_str(shortNameRes);
-    newline();
-  }
-  restore();
-  readFile("TEST.TXT", (char *)0x300000);
-  char *newBuf = (char *)0x300000;
-  print_str(newBuf);
+  // backup();
+  // while (listDir() != 0) {
+  //   readShortDirName();
+  //   print_str(shortNameRes);
+  //   newline();
+  // }
+  // restore();
+  // openFolder("IMG");
+  // backup();
+  // while (listDir() != 0) {
+  //   readShortDirName();
+  //   print_str(shortNameRes);
+  //   newline();
+  // }
+  // restore();
+
+  printHex((uint32_t)(&end));
 
   hlt();
 }

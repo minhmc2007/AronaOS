@@ -4,7 +4,7 @@ STAGE2_ADDRESS equ 0x8000
 PMM_STACK_ADDRESS equ 0x1F0000
 
 start:
-    mov dword [RM_STACK_ADDRESS], esp ; save realmode stack 
+    mov word [RM_STACK_ADDRESS], sp ; save realmode stack 
     ; clear screen by resetting video mode
     mov ah, 0xf
     int 0x10
@@ -38,9 +38,6 @@ start:
     mov al, [boot_drive]
     mov [DLD.bootDrive], al
 
-    mov si, tt2
-    call print_string
-
     call getUpperMemoryMap
    
     ; Enter 32-bit protected mode
@@ -50,7 +47,7 @@ start:
 TEST: db "starting bootloader", 13, 10, 0
 
 RM_STACK_ADDRESS:
-    dd 0
+    dw 0
 
 print_string:
     pusha
@@ -75,6 +72,8 @@ disk_error:
     hlt
     jmp $
 
+%include "boot/loadFile.asm"
+
 boot_drive      db 0
 error_msg       db "DRE", 13, 10, 0
 
@@ -82,10 +81,6 @@ error_msg       db "DRE", 13, 10, 0
 
 savedCr0: dd 0
 db "E"
-; Boot signature
-times 512 - ($ - $$) db 0
-
-stage2Begin:
 
 tt2: db "LUL",13,10,0
 tt:
@@ -119,9 +114,9 @@ protected_mode_start:
     mov fs, ax
     mov gs, ax
     mov ss, ax
-    mov esp, PMM_STACK_ADDRESS
 
-    jmp 0x8400
+    call initFAT32FS
+    jmp $
 
 setupLongMode:
     ; Set up paging for long mode
@@ -242,5 +237,4 @@ gdt64_descriptor:
 
 %include "boot/stage2DiskLoad.asm"
 
-times 511 - ($ - stage2Begin) db 0
 db "E"

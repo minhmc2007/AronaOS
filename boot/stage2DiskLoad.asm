@@ -17,9 +17,9 @@ DLD:
     dw 1 ; read 1 sector per call
 .offset:
     dw DISK_READ_OUTPUT_ADDRESS 
-.segment
+.segment:
     dw 0 ; segment
-    .LBA:
+.LBA:
         dq 0
 .outputAddress:
     dd DISK_READ_OUTPUT_ADDRESS
@@ -28,6 +28,9 @@ DLD:
 
 [bits 16]
 diskLoadData:
+    mov ax, 0
+    mov ds, ax
+    
     mov si, DLD.diskAddressPacket
     mov ah, 0x42
     mov dl, byte [DLD.bootDrive]

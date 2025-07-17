@@ -30,7 +30,10 @@ rm:
     lidt [IDTR16]
     sti
 
+    mov esp, 0
+    mov ebp, 0
     mov sp, word [RM_STACK_ADDRESS]
+    mov bp, sp
 
 .pm2rmCaller:
     call [PM2RM_CALL_ADDRESS]
@@ -83,11 +86,6 @@ GDT16:
         db 0b11000000 ; flags + high limit
         db 0          ; high base
     .END:
-
-PM2RM_CALL_ADDRESS:
-    dd 0
-PM2RM_RETURN_ADDRESS:
-    dd 0
 
 [bits 32]
 pm2rmHelper:
@@ -142,4 +140,8 @@ pm2rmHelper:
 ; address table
 db "PM2RM"
 dd pm2rmHelper; ADDRESS
+PM2RM_CALL_ADDRESS:
+    dd 0
+PM2RM_RETURN_ADDRESS:
+    dd 0
 

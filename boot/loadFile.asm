@@ -52,27 +52,154 @@ initFAT32FS:
     div ebx
     mov dword [localVar.FAT32BD512], eax
 
+    ; calculate dir per sec
+    mov eax, 0
+    mov ax, word [FAT32BPB.BPB_BytsPerSec]
+    mov ebx, 32
+    div ebx
+
+    mov dword [localVar.DirPerSec], eax
     ; test
 
     mov eax, 0
-    mov eax, 4
+    mov eax, [FAT32BPB.BPB_RootClus]
     mov ebx, 0
     call loadCluster
+    call loadDir
+    call loadDir
+    call loadDir
 
-    mov al, byte [DISK_READ_OUTPUT_ADDRESS]
-    mov ah, 0xfa
+    mov eax, 2
+    call readFAT
+    jmp $
+
+    mov al, byte [currentDir.ext + 1]
+    mov ah, 0x1a
     mov word [0xb8000], ax 
 
     jmp $
 
-; set edx as sector
+; eax = index
+; eax = return code
+; need to call loadCluster.checkCurrent after call
+readFAT:
+    pushad
+
+    ; index * 4
+    mov ebx, 4
+    mul ebx
+
+    ; offset = index * 4 / bytsPerSector
+    mov cx, word [FAT32BPB.BPB_BytsPerSec]
+    div cx
+    ; offset[i], i = index * 4 % bytsPerSector
+    mov ebx, edx 
+
+    mov edx, eax
+    add dx, word [FAT32BPB.BPB_RsvdSecCnt]
+    call loadSec
+
+    mov eax, dword [DISK_READ_OUTPUT_ADDRESS + ebx]
+    mov dword [.returnValue], eax
+
+    popad
+    mov eax, dword [.returnValue]
+    ret
+.returnValue:
+    dd 0
+.FAT32:
+    dd 0
+
+; if result = 0 -> no more dir, else result = 1
+; caller should set loadDir.currentIndex = 0 for first call
 loadDir:
     pushad
 
+    ; calculate dir address
+    mov eax, dword [.currentIndex]
+    mov ebx, 32
+    mul ebx
+    add eax, DISK_READ_OUTPUT_ADDRESS
 
+    ; inc currentIndex
+    mov ecx, dword [.currentIndex]
+    inc ecx
+    mov dword [.currentIndex], ecx
 
+    ; check the first byte of dir entry, caller should check if the first bytes 0xe5 to ignore
+    mov dl, byte [eax]
+    cmp dl, 0x00 
+    je .noMoreResult
+
+    ; load name
+    call .nstrcpy
+    ;load ext
+    call .enstrcpy
+
+    ; load attr
+    mov dl, byte [eax + 11]
+    mov byte [currentDir.attr], dl
+
+    ; load first clus HI/LO
+    mov dx, word [eax + 20]
+    mov word [currentDir.fstClusHi], dx
+    mov dx, word [eax + 26]
+    mov word [currentDir.fstClusLo], dx
+    
+    ;load file size
+    mov edx, dword [eax + 28]
+    mov dword [currentDir.fileSize], edx
+
+.end:
+    mov dword [.result], 1
     popad
     ret
+; copy till ecx = 8 or byte = 0x20 (space)
+.nstrcpy:
+    mov ecx, 0
+    .loop:
+        mov dl, byte [eax + ecx]
+        cmp dl, 0x20
+        je .endLoop
+
+        mov byte [currentDir.name + ecx], dl
+        inc ecx
+
+        cmp ecx, 8
+        je .endLoop
+        
+        jmp .loop
+    .endLoop:
+        mov byte [currentDir.name +  ecx], 0 ; add zero at the end
+        ret
+; copy till ecx = 3 or byte = 0x20 (space)
+.enstrcpy:
+    mov ecx, 0
+    .eloop:
+        mov dl, byte [eax + 8 + ecx]
+        cmp dl, 0x20
+        je .eendLoop
+
+        mov byte [currentDir.ext + ecx], dl
+
+        inc ecx
+        cmp ecx, 3
+        je .eendLoop
+
+        jmp .eloop
+    .eendLoop:
+        mov byte [currentDir.ext +  ecx], 0 ; add zero at the end
+        ret
+    
+.noMoreResult:
+    mov dword [.result], 0
+    popad
+    ret
+.result:
+    dd 0
+.currentIndex:
+    dd 0
+
 
 ; set eax as cluster, ebx as index
 ; -> readSector(firstDataSec + (cluster - 2) * secPerClus + index)
@@ -89,9 +216,27 @@ loadCluster:
     
     add eax, ebx ; eax += index
     
+    mov dword [.currentLBA], eax
     mov edx, eax
     call loadSec
 
+    popad
+    ret
+.currentLBA:
+    dd 0
+.checkCurrent:
+    pushad
+
+    ; check if LoadSec.LBA = .currentLBA
+    mov eax, dword [LoadSec.LBA]
+    mov ebx, dword [.currentLBA]
+    cmp eax, ebx
+    je .endCheck
+
+    mov edx, dword [.currentLBA]
+    call loadSec
+
+.endCheck:
     popad
     ret
 
@@ -124,14 +269,15 @@ loadSec:
 
 currentDir:
 .name:
-    times 8 db 0
+    times 9 db 0
 .ext:
-    times 3 db 0
+    times 4 db 0
 .attr:
     db 0
-.fstClusHi:
-    dw 0
+.fstClus:
 .fstClusLo:
+    dw 0
+.fstClusHi:
     dw 0
 .fileSize:
     dd 0
@@ -143,6 +289,8 @@ localVar:
 .clusterSize:
     dd 0
 .FAT32BD512: ; FAT32 BytsPerSec / 512
+    dd 0
+.DirPerSec:
     dd 0
 
 ; only need some fields, this to store them

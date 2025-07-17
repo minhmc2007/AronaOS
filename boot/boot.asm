@@ -77,8 +77,6 @@ disk_error:
 boot_drive      db 0
 error_msg       db "DRE", 13, 10, 0
 
-%include "boot/pm2rm.asm"
-
 savedCr0: dd 0
 db "E"
 

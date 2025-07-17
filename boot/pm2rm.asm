@@ -60,32 +60,6 @@ rm:
 
     jmp [PM2RM_RETURN_ADDRESS]
 
-IDTR16:
-    dw 0x3FF
-    dd 0x0
-
-GDTR16:
-    dw GDT16.END - GDT16 - 1
-    dd GDT16
-
-GDT16:
-    .NULL:
-        dq 0
-    .CODE16:
-        dw 0xffff     ; low limit
-        dw 0          ; low base
-        db 0          ; mid base
-        db 0b10011010 ; access bit
-        db 0b00000000 ; flags + high limit
-        db 0          ; high base
-    .DATA16:
-        dw 0xffff     ; low limit
-        dw 0          ; low base
-        db 0          ; mid base
-        db 0b10010010 ; access bit
-        db 0b11000000 ; flags + high limit
-        db 0          ; high base
-    .END:
 
 [bits 32]
 pm2rmHelper:

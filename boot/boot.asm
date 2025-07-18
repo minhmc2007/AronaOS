@@ -82,14 +82,7 @@ disk_error:
 boot_drive      db 0
 error_msg       db "DRE", 13, 10, 0
 
-savedCr0: dd 0
 db "E"
-
-tt2: db "LUL",13,10,0
-tt:
-    mov si, TEST
-    call print_string
-    ret
 
 %include "boot/getMemoryMap.asm"
 [bits 16]
@@ -100,7 +93,6 @@ enter_protected_mode:
     
     ; Enable protected mode
     mov eax, cr0
-    mov [savedCr0], eax
     or eax, 1
     mov cr0, eax
     
@@ -166,7 +158,7 @@ protected_mode_start:
         call setupLongMode
 
         jmp $
-.backupClus
+.backupClus:
     dd 0
 
 initMsg: db "init fat32 simple driver!", 0

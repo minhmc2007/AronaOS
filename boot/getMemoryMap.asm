@@ -38,11 +38,8 @@ getUpperMemoryMap:
     jmp .loop
 
 .getMemoryMapError:
-    mov si, getMemoryMapErrorMsg
-    call print_string
     jmp $
     
-getMemoryMapErrorMsg db "BIOS is broken!", 13, 10, 0
 
 
 UMSBMagic: db "TUMP" ; leave this for another stage could be able to find the table

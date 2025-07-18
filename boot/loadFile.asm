@@ -67,6 +67,67 @@ initFAT32FS:
     call loadCluster
 
     ret
+
+;eax = address
+; caller should backup clus
+readFile:
+    pushad
+
+    mov dword [.address], eax ; save
+    mov byte [.index], 0
+
+    .loop:
+        mov eax, dword [loadCluster.currentClus]
+        mov ebx, 0
+        mov bl, byte [.index]
+        call loadCluster
+
+        mov ecx, DISK_READ_OUTPUT_ADDRESS
+        mov ebx, dword [.address]
+        mov edx, 0
+        mov dx, word [FAT32BPB.BPB_BytsPerSec]
+        call fmemcpy
+
+
+        add dword [.movSize], edx; add by Byt per sec
+        add dword [.address], edx
+
+        ; cmp with sec per clus
+        mov al, byte [FAT32BPB.BPB_SecPerClus]
+        inc byte [.index]
+        cmp byte [.index], al
+        jne .loop
+
+        mov eax, dword [currentDir.fileSize] ; check if end of clus
+        cmp eax, dword [.movSize]
+        jg .increaseClus
+
+    popad
+    ret
+.increaseClus:
+    mov eax, [loadCluster.currentClus]
+    call readFAT
+    cmp eax, 0xffffff7
+    jge .error
+    mov byte [.index], 0
+    mov ebx, 0
+    call loadCluster 
+    jmp .loop
+.error:
+    mov esi, .ers
+    call println
+    jmp $
+.ers:
+    db "BAD FAT32", 0
+.backupClus:
+    dd 0
+.movSize:
+    dd 0
+.address:
+    dd 0
+.index:
+    db 0
+
 ; eax = index
 ; eax = return code
 readFAT:
@@ -134,7 +195,7 @@ findDir:
         mov dword [.result], 0
         popa
         ret
-    .found
+    .found:
         mov dword [.result], 1
         popa
         ret

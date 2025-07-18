@@ -24,3 +24,21 @@ astrcmp:
     ret
 .result:
     dd 0
+
+;ebx = dest, ecx = src, edx= length
+fmemcpy:
+    pushad
+
+    mov eax, 0
+    .loop:
+        mov edi, [ecx]
+        mov [ebx], edi
+        add ecx, 4
+        add ebx, 4
+        add eax, 4
+        
+        cmp edx, eax
+        jg .loop
+    
+    popad
+    ret

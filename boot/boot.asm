@@ -139,12 +139,39 @@ protected_mode_start:
     .found:
         mov esi, foundMsg
         call println
-    jmp $
+        mov eax, dword [currentDir.fstClus]
+        mov ebx, 0
+        call loadCluster
+        mov eax, bootstrap
+        call findDir
+        cmp dword [findDir.result], 1
+        je .foundBS
+        
+        jmp $
+    .foundBS:
+        mov esi, foundMsg
+        call println
+        mov eax, dword [loadCluster.currentClus]
+        mov dword [.backupClus], eax
+        mov eax, [currentDir.fstClus]
+        call loadCluster
+        mov eax, 0x200000
+        call readFile
+
+        mov eax, dword [.backupClus]
+        mov ebx, 0
+        call loadCluster
+
+        mov esi, 0x200000
+        call println
+        jmp $
+.backupClus
+    dd 0
 
 initMsg: db "init fat32 simple driver!", 0
 bootFolder: db "BOOT", 0
 bootstrap: db "BS", 0
-foundMsg: db "found BOOT Folder!", 0
+foundMsg: db "found folder!", 0
 
 setupLongMode:
     ; Set up paging for long mode

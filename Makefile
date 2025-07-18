@@ -42,10 +42,10 @@ $(imgOutput): $(bootEntryOutput) $(bootstrap) buildTools/buildTools boot/tinymbr
 	@echo "Install tinymbr"
 	@buildTools/buildTools install-bios $(imgOutput) boot/tinymbr.bin
 	@mcopy -i $(imgOutput) ./img/boot ::
-	@mcopy -i $(imgOutput) ./img/boot/test ::
+	@rm ./img/boot/BS
 
 $(bootstrap):
-	@cd bootstrap && make
+	@$(MAKE) -C bootstrap
 
 boot/tinymbr.bin: boot/tinymbr.asm
 	@echo "[AS] boot/tinymbr.asm -> $@"

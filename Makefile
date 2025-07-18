@@ -16,13 +16,14 @@ preKernelOutput=$(preKernelFolder)/preKernel.bin
 preKernelELF=$(preKernelFolder)/stage2
 bootEntryOutput=$(bootEntryFolder)/boot.bin
 
-preKernelSRC=$(shell find $(preKernelFolder) -type f -name "*.c") $(shell find $(preKernelFolder) -type f -name "*.asm") $(shell find $(preKernelFolder) -type f -name "*.cpp")
-preKernelOBJ=$(patsubst %, %.preKernel.o, $(preKernelSRC))
+preKernelSRC=
+preKernelOBJ=
 
 bootEntrySRC=$(shell find boot -type f -name "*.asm")
 IMG_FOLDERS=$(shell find ./img/ -type d -maxdepth 1)
 IMG_FILES=$(shell find ./img/ -type f -maxdepth 1)
 
+bootstrap=img/boot/BS
 imgOutput=aronaos.img
 
 checkBuildStatus: $(imgOutput)
@@ -32,7 +33,8 @@ run: $(imgOutput)
 	@echo "Running [$<]"
 	@qemu-system-x86_64 $< -no-reboot -m 1G
 
-$(imgOutput): $(bootEntryOutput) buildTools/buildTools boot/tinymbr.bin
+$(imgOutput): $(bootEntryOutput) $(bootstrap) buildTools/buildTools boot/tinymbr.bin
+	@rm -f $@
 	@dd if=/dev/zero of=$(imgOutput) bs=512 count=10000
 	@mkfs.fat -F 32 $@
 	@dd if=$(bootEntryOutput) of=$(imgOutput) bs=512 seek=2 conv=notrunc
@@ -41,6 +43,9 @@ $(imgOutput): $(bootEntryOutput) buildTools/buildTools boot/tinymbr.bin
 	@buildTools/buildTools install-bios $(imgOutput) boot/tinymbr.bin
 	@mcopy -i $(imgOutput) ./img/boot ::
 	@mcopy -i $(imgOutput) ./img/boot/test ::
+
+$(bootstrap):
+	@cd bootstrap && make
 
 boot/tinymbr.bin: boot/tinymbr.asm
 	@echo "[AS] boot/tinymbr.asm -> $@"
@@ -75,5 +80,5 @@ buildTools/buildTools: buildTools/buildTools.c
 	@$(CC) $< -o $@
 
 clean:
-	@rm $(shell find ./ -type f -name "*.o") $(preKernelELF) $(preKernelOutput) $(imgOutput) $(bootEntryOutput)
+	@rm $(bootstrap) $(shell find ./ -type f -name "*.o") $(preKernelELF) $(preKernelOutput) $(imgOutput) $(bootEntryOutput)
 	@echo Okay

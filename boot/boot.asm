@@ -42,8 +42,7 @@ start:
     mov al, [boot_drive]
     mov [DLD.bootDrive], al
 
-    ; we will load the memory map later 
-    ; call getUpperMemoryMap
+    call getUpperMemoryMap
    
     ; Enter 32-bit protected mode
     call enter_protected_mode
@@ -151,6 +150,8 @@ protected_mode_start:
     .foundBS:
         mov esi, foundMsg
         call println
+        mov eax, dword [currentDir.fileSize]
+        mov dword [BSFS.bootstrapSize], eax
         mov eax, dword [loadCluster.currentClus]
         mov dword [.backupClus], eax
         mov eax, [currentDir.fstClus]
@@ -162,8 +163,8 @@ protected_mode_start:
         mov ebx, 0
         call loadCluster
 
-        mov esi, 0x200000
-        call println
+        call setupLongMode
+
         jmp $
 .backupClus
     dd 0
@@ -172,6 +173,11 @@ initMsg: db "init fat32 simple driver!", 0
 bootFolder: db "BOOT", 0
 bootstrap: db "BS", 0
 foundMsg: db "found folder!", 0
+
+; BSFS table
+BSFS: db "BSFS"
+.bootstrapSize:
+    dd 0
 
 setupLongMode:
     ; Set up paging for long mode
@@ -240,10 +246,10 @@ long_mode_start:
     mov fs, ax
     mov gs, ax
     mov ss, ax
-    mov rsp, PMM_STACK_ADDRESS ; set as LONGMODE STACK
+    mov rsp, 0x1a0000 ; set as LONGMODE STACK
 
-    ; Jump to kernel
-    jmp 0x8000
+    ; Jump to bootstrap
+    jmp 0x200000
 
 ; 32-bit GDT
 [BITS 16]

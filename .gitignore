@@ -4,3 +4,4 @@ boot/boot.bin
 *.asm.preKernel.o
 boot/stage2/stage2
 tmp/
+*.o

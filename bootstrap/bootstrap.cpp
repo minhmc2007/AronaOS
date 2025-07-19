@@ -14,24 +14,145 @@
     You should have received a copy of the GNU General Public License
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
+#include "elf/elf.hpp"
 #include "paging/paging.hpp"
+#include "utils.hpp"
+#include <cstddef>
 #include <cstdint>
 
-extern "C" {
-__attribute__((section(".text.entry"))) int bmain() {
-  uint16_t *buffer = (uint16_t *)0xb8000;
-  buffer[0] = 0x0a61;
-  buffer[1] = 0x0a62;
-  buffer[2] = 0x0a63;
+#define kernelAddress 0xffffffff80000000
+uint16_t *buffer = (uint16_t *)0xb8000;
+int x = 0, y = 0;
+uint16_t color = 0x0300;
 
-  mapPage();
-  buffer[3] = 0x0a69;
-  uint16_t *a = (uint16_t *)0xa00000;
-  *a = 0x0a70;
-  a = (uint16_t *)0xFFFFFFFF80000000;
-  buffer[4] = *a;
+void putc(char c) {
+  if (c == 10) {
+    y++;
+    x = -1;
+  } else {
+    buffer[y * 80 + x] = color | c;
+  }
 
+  x++;
+  if (x >= 80) {
+    y++;
+    x = 0;
+  }
+
+  if (y >= 25) {
+    memmove(buffer, buffer + 80, 3840);
+
+    for (int i = 0; i < 80; i++) {
+      buffer[24 * 80 + i] = color;
+    }
+
+    x = 0;
+    y--;
+  }
+}
+
+void print(const char *s) {
+  int i = 0;
+  while (s[i] != 0) {
+    putc(s[i]);
+    i++;
+  }
+}
+
+void clearScreen() {
+
+  for (int i = 0; i < 80 * 2 * 25; i++) {
+    buffer[i] = color;
+  }
+}
+
+void printUint(uint64_t n) {
+  if (n == 0) {
+    print(0);
+  }
+  char buf[20];
+  buf[19] = 0;
+  int c = 18;
+  while (n != 0) {
+    buf[c] = n % 10 + 48;
+    c--;
+
+    n /= 10;
+  }
+  print(&buf[c + 1]);
+}
+
+void *scanTable(const char *magic) {
+  char *buffer = (char *)0x7e00;
+  for (int i = 0; i < 512 * 10; i++) {
+    if (buffer[i] == magic[0]) { // start check
+      int j = 0;
+      for (j = j; magic[j] != 0; j++)
+        if (magic[j] != buffer[i + j])
+          break;
+
+      if (magic[j] == 0)
+        return (&buffer[i] + j);
+    }
+  }
+
+  return 0;
+}
+
+bool checkELFMagic(void *address) {
+  char *b = (char *)address;
+
+  if (b[0] != 0x7F) {
+    return false;
+  }
+
+  return memcmp(b + 1, "ELF", 3) == 0;
+}
+
+void hlt() {
+  asm("hlt");
   for (;;) {
   }
+}
+
+typedef struct {
+  uint32_t bootstrapSize;
+  uint32_t kernelSize;
+} BSFS;
+
+extern "C" {
+__attribute__((section(".text.entry"))) void bmain() {
+  mapPage();
+  clearScreen();
+  print("parse Kernel ELF...\n");
+
+  BSFS *b = (BSFS *)scanTable("BSFS");
+
+  if (b == 0) {
+    print("MAYBE IM NOT BE LOADED BY ARONA BOOTLOADER\n");
+    hlt();
+  }
+
+  uint32_t kernelELFSize = b->kernelSize;
+
+  print("Kernel elf size = ");
+  printUint(kernelELFSize);
+  print("\n");
+
+  if (!checkELFMagic((void *)kernelAddress)) {
+    print("kernel isn't a ELF");
+    hlt();
+  }
+
+  ELFHeader *h = (ELFHeader *)kernelAddress;
+
+  if (h->bit != 2) {
+    print("Only support 64 bit amd64 elf!\n");
+    hlt();
+  }
+
+  printUint(h->numberOfProgramHeaderTables);
+
+  hlt();
 }
 }

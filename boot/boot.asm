@@ -154,6 +154,16 @@ protected_mode_start:
         mov eax, dword [.backupClus]
         mov ebx, 0
         call loadCluster
+        
+        ; load kernel
+        mov eax, kernel
+        call findDir
+        mov eax, dword [currentDir.fileSize]
+        mov dword [BSFS.kernelSize], eax
+        mov eax, dword [currentDir.fstClus]
+        call loadCluster
+        mov eax, 0xa00000
+        call readFile
 
         call setupLongMode
 
@@ -165,10 +175,13 @@ initMsg: db "init fat32 simple driver!", 0
 bootFolder: db "BOOT", 0
 bootstrap: db "BS", 0
 foundMsg: db "found folder!", 0
+kernel: db "KERNEL", 0
 
 ; BSFS table
 BSFS: db "BSFS"
 .bootstrapSize:
+    dd 0
+.kernelSize:
     dd 0
 
 setupLongMode:

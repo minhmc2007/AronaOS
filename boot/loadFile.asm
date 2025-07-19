@@ -91,6 +91,9 @@ readFile:
     mov dword [.address], eax ; save
     mov byte [.index], 0
 
+    mov byte [.index], 0
+    mov dword [.movSize], 0
+
     .loop:
         mov eax, dword [loadCluster.currentClus]
         mov ebx, 0

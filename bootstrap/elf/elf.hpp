@@ -17,6 +17,21 @@
 #include <cstdint>
 #pragma once
 
+enum PT_VAL {
+  PT_NULL = 0,
+  PT_LOAD = 1,
+  PT_DYNAMIC,
+  PT_INTERP,
+  PT_NOTE,
+  PT_SHLIB,
+  PT_PHDR,
+  PT_TLS,
+  PT_LOOS = 0x60000000,
+  PT_HIOS = 0x6fffffff,
+  PT_LOPROC = 0x70000000,
+  PT_HIPROC = 0x7fffffff
+};
+
 typedef struct __attribute__((packed)) {
   char magic[4];
   uint8_t bit;
@@ -28,7 +43,7 @@ typedef struct __attribute__((packed)) {
   uint16_t type;
   uint16_t instructionSet;
   uint32_t ELFVersion;
-  uint64_t programEntryOffset;
+  uint64_t EntryOffset;
   uint64_t programHeaderTableOffset;
   uint64_t sectionHeaderTableOffset;
   uint32_t flags;

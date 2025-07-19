@@ -15,11 +15,17 @@
 bits 64
 global loadPML4
 global check
+global callKmain
 ;rdi = address
 loadPML4:
     mov rax, rdi
     mov cr3, rax
     ret
+
+; rdi = address
+callKmain:
+    mov rsp, 0x200000
+    jmp rdi
 
 ;rdi value, this func for testing
 check:

@@ -69,6 +69,7 @@ void clearScreen() {
 void printUint(uint64_t n) {
   if (n == 0) {
     print(0);
+    return;
   }
   char buf[20];
   buf[19] = 0;
@@ -78,6 +79,26 @@ void printUint(uint64_t n) {
     c--;
 
     n /= 10;
+  }
+  print(&buf[c + 1]);
+}
+
+char hexTranslationTab[16] = {'0', '1', '2', '3', '4', '5', '6', '7',
+                              '8', '9', 'A', 'B', 'C', 'D', 'E', 'F'};
+void printHex(uint64_t n) {
+  print("0x");
+  if (n == 0) {
+    print(0);
+    return;
+  }
+  char buf[20];
+  buf[19] = 0;
+  int c = 18;
+  while (n != 0) {
+    buf[c] = hexTranslationTab[n % 16];
+    c--;
+
+    n /= 16;
   }
   print(&buf[c + 1]);
 }
@@ -120,6 +141,8 @@ typedef struct {
   uint32_t kernelSize;
 } BSFS;
 
+extern "C" void callKmain(uint64_t);
+
 extern "C" {
 __attribute__((section(".text.entry"))) void bmain() {
   mapPage();
@@ -145,14 +168,31 @@ __attribute__((section(".text.entry"))) void bmain() {
   }
 
   ELFHeader *h = (ELFHeader *)kernelAddress;
+  ELFHeader kernelELFHeader = *h;
 
   if (h->bit != 2) {
     print("Only support 64 bit amd64 elf!\n");
     hlt();
   }
 
-  printUint(h->numberOfProgramHeaderTables);
+  ProgramHeader *ph =
+      (ProgramHeader *)(kernelAddress + h->programHeaderTableOffset);
+  ProgramHeader kernelProgramHeader;
 
-  hlt();
+  for (int i = 0; i < kernelELFHeader.numberOfProgramHeaderTables; i++) {
+    kernelProgramHeader = ph[i]; // copy to prevent table from disappear
+    if (kernelProgramHeader.type == PT_LOAD) {
+      uint64_t *dest = (uint64_t *)(kernelProgramHeader.virtualAddress),
+               *src = (uint64_t *)(kernelAddress + kernelProgramHeader.offset);
+      for (uint64_t i = 0; i < kernelProgramHeader.fileSize / 8 + 1; i++) {
+        dest[i] = src[i];
+      }
+      break;
+    }
+  }
+  char *p = (char *)kernelAddress;
+  callKmain(kernelELFHeader.EntryOffset);
+
+  // hlt();
 }
 }

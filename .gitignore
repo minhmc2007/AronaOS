@@ -5,3 +5,4 @@ boot/boot.bin
 boot/stage2/stage2
 tmp/
 *.o
+log.txt

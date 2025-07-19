@@ -16,4 +16,17 @@
 */
 #pragma once
 
-#define PAGING_PRESENT
+#include <cstdint>
+#define PAGING_PRESENT 0x1
+#define PAGING_RW (1 << 1)
+#define PAGING_USER_ACCESSIBLE (1 << 2)
+#define PAGING_WRITE_THROUGH (1 << 3)
+#define PAGING_DISABLE_CACHE (1 << 4)
+#define PAGING_ACCESSED (1 << 5)
+#define PAGING_DIRTY (1 << 6)
+#define PAGING_HUGE_PAGE (1 << 7)
+#define PAGING_GLOBAL (1 << 8)
+#define PAGING_NO_EXECUTE (1 << 63)
+
+void mapPage();
+extern "C" void check(uint64_t);

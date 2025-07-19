@@ -31,7 +31,8 @@ checkBuildStatus: $(imgOutput)
 
 run: $(imgOutput)
 	@echo "Running [$<]"
-	@qemu-system-x86_64 $< -no-reboot -m 1G
+	@echo "" > log.txt
+	@qemu-system-x86_64 $< -no-reboot -m 1G -D log.txt -d int
 
 $(imgOutput): $(bootEntryOutput) $(bootstrap) buildTools/buildTools boot/tinymbr.bin
 	@rm -f $@

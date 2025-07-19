@@ -1,7 +1,9 @@
 CXX=g++
 LD=ld
+ASM=nasm
 
-CXX_FLAGS= -Wall \
+CXX_FLAGS= -I ./ \
+    -Wall \
     -Wextra \
     -ffreestanding \
     -fno-stack-protector \
@@ -19,15 +21,23 @@ CXX_FLAGS= -Wall \
 LD_FLAGS=-m elf_x86_64 -nostdlib -static -T linker.ld
 
 CXXSRC=$(shell find ./ -type f -name "*.cpp")
-CXXOBJ=$(patsubst %.cpp, %.o, $(CXXSRC))
-
+CXXOBJ=$(patsubst %, %.o, $(CXXSRC))
+ASMSRC=$(shell find ./ -type f -name "*.asm")
+ASMOBJ=$(patsubst %.asm, %.asm.o, $(ASMSRC))
 OUTPUT=../img/boot/BS
 
-$(OUTPUT): $(CXXOBJ)
+$(OUTPUT): $(CXXOBJ) $(ASMOBJ)
 	@echo "Linking ..."
-	@$(LD) $(LD_FLAGS) $(CXXOBJ) -o bootstrap
+	@$(LD) $(LD_FLAGS) $(CXXOBJ) $(ASMOBJ) -o bootstrap
 	@objcopy -O binary bootstrap $@
 
-%.o: %.cpp
+%.cpp.o: %.cpp
 	@echo "[CXX] $<..."
 	@$(CXX) $(CXX_FLAGS) -c $< -o $@
+
+%.asm.o:%.asm
+	@echo "[ASM] $<..."
+	@$(ASM) -felf64 $< -o $@
+
+clean:
+	@rm $(shell find ./ -type f -name "*.o")

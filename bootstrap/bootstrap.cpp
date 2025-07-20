@@ -68,7 +68,7 @@ void clearScreen() {
 
 void printUint(uint64_t n) {
   if (n == 0) {
-    print(0);
+    print("0");
     return;
   }
   char buf[20];
@@ -88,7 +88,7 @@ char hexTranslationTab[16] = {'0', '1', '2', '3', '4', '5', '6', '7',
 void printHex(uint64_t n) {
   print("0x");
   if (n == 0) {
-    print(0);
+    print("0");
     return;
   }
   char buf[20];
@@ -175,31 +175,35 @@ __attribute__((section(".text.entry"))) void bmain() {
     hlt();
   }
 
+  // copy program header to 0x700000
   ProgramHeader *ph =
       (ProgramHeader *)(kernelAddress + h->programHeaderTableOffset);
-  ProgramHeader kernelProgramHeader;
+  memcpy((void *)0x700000, ph,
+         sizeof(ProgramHeader) * kernelELFHeader.numberOfProgramHeaderTables);
+
+  ProgramHeader *kernelProgramHeader = (ProgramHeader *)0x700000;
 
   for (int i = 0; i < kernelELFHeader.numberOfProgramHeaderTables; i++) {
-    kernelProgramHeader = ph[i]; // copy to prevent table from disappear
-    if (kernelProgramHeader.type == PT_LOAD) {
-      uint64_t *dest = (uint64_t *)(kernelProgramHeader.virtualAddress),
-               *src = (uint64_t *)(kernelAddress + kernelProgramHeader.offset);
-      for (uint64_t i = 0; i < kernelProgramHeader.fileSize / 8 + 1; i++) {
+    if (kernelProgramHeader->type == PT_LOAD) {
+      uint64_t *dest = (uint64_t *)(kernelProgramHeader->virtualAddress),
+               *src = (uint64_t *)(kernelAddress + kernelProgramHeader->offset);
+      for (uint64_t i = 0; i < kernelProgramHeader->fileSize / 8 + 1; i++) {
         dest[i] = src[i];
       }
-      break;
+
+      // fill bss with zero
+      char *bssSection = (char *)(kernelProgramHeader->virtualAddress +
+                                  kernelProgramHeader->fileSize);
+
+      for (uint32_t i = 0;
+           i < (kernelProgramHeader->memSize - kernelProgramHeader->fileSize);
+           i++) {
+        bssSection[i] = 0;
+      }
     }
-  }
 
-  // fill bss with zero
-  uint64_t *bssOffset =
-      (uint64_t *)(kernelAddress + kernelProgramHeader.fileSize);
-  while ((uint64_t)bssOffset <= (kernelAddress + kernelProgramHeader.memSize)) {
-    *bssOffset = 0;
-    bssOffset++;
+    kernelProgramHeader += 1;
   }
-
-  printHex(kernelProgramHeader.memSize - kernelProgramHeader.fileSize);
 
   callKmain(kernelELFHeader.EntryOffset);
 

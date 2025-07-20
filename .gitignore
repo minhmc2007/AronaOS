@@ -6,3 +6,4 @@ boot/stage2/stage2
 tmp/
 *.o
 log.txt
+nonKernelImg.img

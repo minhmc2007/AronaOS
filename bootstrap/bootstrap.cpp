@@ -190,7 +190,17 @@ __attribute__((section(".text.entry"))) void bmain() {
       break;
     }
   }
-  char *p = (char *)kernelAddress;
+
+  // fill bss with zero
+  uint64_t *bssOffset =
+      (uint64_t *)(kernelAddress + kernelProgramHeader.fileSize);
+  while ((uint64_t)bssOffset <= (kernelAddress + kernelProgramHeader.memSize)) {
+    *bssOffset = 0;
+    bssOffset++;
+  }
+
+  printHex(kernelProgramHeader.memSize - kernelProgramHeader.fileSize);
+
   callKmain(kernelELFHeader.EntryOffset);
 
   // hlt();

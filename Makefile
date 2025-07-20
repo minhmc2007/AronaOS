@@ -44,7 +44,18 @@ $(imgOutput): $(bootEntryOutput) $(bootstrap) buildTools/buildTools boot/tinymbr
 	@buildTools/buildTools install-bios $(imgOutput) boot/tinymbr.bin
 	@mcopy -i $(imgOutput) ./img/boot ::
 	@rm -f ./img/boot/BS
-	
+
+nonKernelImg.img:$(bootEntryOutput) $(bootstrap) buildTools/buildTools boot/tinymbr.bin
+	@dd if=/dev/zero of=$@ bs=512 count=10000
+	@mkfs.fat -F 32 $@
+	@dd if=$(bootEntryOutput) of=$@ bs=512 seek=2 conv=notrunc
+	@echo "Created disk img!"
+	@echo "Install tinymbr"
+	@buildTools/buildTools install-bios $@ boot/tinymbr.bin
+	@mv img/boot/kernel img/
+	@mcopy -i $@ ./img/boot ::
+	@mv img/kernel img/boot/
+	@rm -f ./img/boot/BS
 
 $(bootstrap):
 	@$(MAKE) -C bootstrap
